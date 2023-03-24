@@ -13,67 +13,52 @@ g00 = 9.81         # Acceleration due to gravity near the surface of the earth i
 d2r = np.pi / 180. # Factor to convert degrees to radians
 r2d = 180. / np.pi # Factor to convert radians to degrees
 Tau = 6*86400
-#rs = 1/Tau
 
 
 ### Class which solves a forced vorticity equation using spherical harmonics
 class Forcing:
-    def __init__(self, sphere, dt, T):#, forcing_type, forcing_loc, eddy_A):
+    def __init__(self, sphere, dt, T):
+        """
+        initializes sphere for barotropic model.
+        
+        Arguments:
+        * nlat (int) : number of latitude points
+        * nlon (int) : number of longitude points
+        * U (int/float/array) : background zonal mean wind
+        * theta0 (float) : equator temperature
+        * deltheta (float): amplitude of equator-to-pole gradient
+        * rsphere (float) : radius of sphere
+        """
 
         self.sphere = sphere
         self.dt = dt
         self.T = T
-        
-        #lat/lon grid in degrees
-        self.glon = sphere.glon
-        self.glat = sphere.glat
-        self.glons,self.glats = sphere.glons,sphere.glats
+        self.Nt = int(self.T / self.dt)
 
-        # lat/lon grid in radians
-        self.rlat = np.deg2rad(self.glat)
-        self.rlon = np.deg2rad(self.glon)
-        self.rlons, self.rlats = np.meshgrid(self.rlon, self.rlat)
-        
-        #nspectral
-        self.nspecindx = sphere.nspecindx
-        #truncation (based on grid)
-        self._ntrunc = sphere._ntrunc
-        #index of m,n components for spherical harmonics
-        self.specindxm, self.specindxn = sphere.specindxm, sphere.specindxn
-        self._laplacian_eigenvalues = sphere._laplacian_eigenvalues
-        
-        #no forcing unless specified
-        #self.forcing_spectral = 0.
-        #self.forcing_grid = 0.
-        #complex white noise which will have some memory
-        #self.white_noise = np.random.normal(0,1, size = (self.nspecindx, 2)).view(np.complex128).ravel()
-        #self.forcing_type = forcing_type
-        #self.forcing_loc = forcing_loc
-        
-        #self.eddy_A = eddy_A #amplitude of eddy term
     
     def generate_stocheddy_tseries(self,A=32e-10):
         """Generate a forcing timeseries in grid space of length T"""
         #TODO: generating these t-series of forcing is ugly but will likely be useful for the ensemble cases
         # we want each member to share (some amount) of information about the forcing
-        forcing_tseries = np.zeros((self.T+1,len(self.glat),len(self.glon)))
+        forcing_tseries = np.zeros((self.Nt+2,len(self.glat),len(self.glon)))
                                    
         stir_lat = 40. #degrees
         stir_width = 10. #degrees
         
-        lat_mask = np.exp(- ((np.abs(self.glats)-stir_lat)/stir_width)**2 ) #eddy stirring location
+        lat_mask = np.exp(- ((np.abs(self.sphere.glats)-stir_lat)/stir_width)**2 ) #eddy stirring location
         
         wn_forcing = 6
         
-        for tt in range(1,self.T+1):
-            W= np.random.normal(0,1, size = (self.nspecindx, 2)).view(np.complex128).ravel() #complex white noise
-            forcing_tseries[tt,:]= A*lat_mask*self.sphere.to_grid(np.real(W*self.sphere.to_spectral(np.exp(1.j*wn_forcing*self.rlons))))
-        return forcing_tseries
+        for tt in range(1,self.Nt+1):
+            W= np.random.normal(0,1, size = (self.sphere.nspecindx, 2)).view(np.complex128).ravel() #complex white noise
+            forcing_tseries[tt,:]= A*lat_mask*self.sphere.to_grid(np.real(W*self.sphere.to_spectral(np.exp(1.j*wn_forcing*self.sphere.rlons))))
+            
+        self.forcing_tseries=forcing_tseries
     
     def generate_gaussianblob_tseries(self,forcing_loc=[50,160]):
-        forcing_tseries = np.zeros((self.T,len(self.glat),len(self.glon)))
+        forcing_tseries = np.zeros((self.Nt+2,len(self.sphere.glat),len(self.sphere.glon)))
         A = 10e-10  # s**-2
-        gauss_forcing = np.zeros(self.rlons.shape)
+        gauss_forcing = np.zeros(self.sphere.rlons.shape)
         x, y = np.meshgrid(np.linspace(-1,1,10), np.linspace(-1,1,10))
         d = np.sqrt(x*x+y*y)
         sigma, mu = 0.5, 0.0
@@ -81,16 +66,16 @@ class Forcing:
             
         def find_nearest_indx(array,value): return np.abs(array-value).argmin()
 
-        lat_i = find_nearest_indx(self.glat,forcing_loc[0])
-        lon_i = find_nearest_indx(self.glon,forcing_loc[1])
+        lat_i = find_nearest_indx(self.sphere.glat,forcing_loc[0])
+        lon_i = find_nearest_indx(self.sphere.glon,forcing_loc[1])
 
         gauss_forcing[lat_i:lat_i+10, lon_i:lon_i+10] = g*A
         
         forcing_tseries[:] = gauss_forcing
-        return forcing_tseries
-
         
-        
+        self.forcing_tseries=forcing_tseries
+        #return forcing_tseries
+    
         
     def generate_forcing(self):
         """Generate spectral forcings for the vorticity equation

@@ -9,11 +9,12 @@ from forced_barotropic_sphere.solver import Solver
 from forced_barotropic_sphere.forcing import Forcing
 
 #cython C methods
-# import sys
-# sys.path.append("./")
+import sys
+sys.path.append("../")
 import pyximport
 pyximport.install(setup_args={"script_args" : ["--verbose"]})
-import forced_barotropic_sphere.bm_methods as bm_methods
+#import bm_methods.bm_methods as bm_methods
+#import forced_barotropic_sphere.bm_methods as bm_methods
 
 def integrate_ensemble(nlat,nlon, tstep, T, ofreq, ics, forcing_type='gaussian', n_ens = 5, nonlinear=False, vortpert=0., thetapert=0.):
     """Argument sphere simply defines the common properties for the ensemble, however new spheres and solvers must be

@@ -7,19 +7,18 @@ import xarray as xr
 from forced_barotropic_sphere.sphere import Sphere
 from forced_barotropic_sphere.dynamics import ForcedVorticity
 
-### Class which will integrate the forced vorticity equation and apply stirring to theta field
 class Solver:
-    def __init__(self,  sphere, tstep, T, ofreq, ics, forcing_tseries):#forcing_type = 'None', forcing_loc=[35,160], eddy_A=8e-10):
+    """
+    Solver class which will integrate the vorticity equation
+    """
+    def __init__(self,  sphere, forcing, ofreq, ics):
         
         self.sphere = sphere
-        #self.forcing_type = forcing_type
-        #self.forcing_loc = forcing_loc
-        #self.eddy_A = eddy_A
         
-        self.T = T
-        self.Nt = int(self.T / tstep)
-        self.dt = tstep
-        self.ts = np.arange(self.Nt) * tstep
+        self.dt = forcing.dt
+        self.T = forcing.T
+        self.Nt = int(self.T / self.dt)        
+        self.ts = np.arange(self.Nt) * self.dt
         
         #number of outputs
         self.No = int(self.Nt/ofreq)+1
@@ -35,14 +34,16 @@ class Solver:
         self.vortpo = np.zeros((self.No, self.sphere.nlat,self.sphere.nlon), 'd')
         self.thetapo= np.zeros((self.No, self.sphere.nlat,self.sphere.nlon), 'd')        
         
-        self.FVort = ForcedVorticity(self.sphere, self.vortp, self.thetap, self.dt, forcing_tseries)#self.forcing_type, self.forcing_loc, self.eddy_A)
+        self.FVort = ForcedVorticity(self.sphere, self.vortp, self.thetap, forcing.forcing_tseries)
             
-    def integrate_dynamics(self, nonlinear=False):
-        self.FVort.nonlinear = nonlinear
+    def integrate_dynamics(self, linear=True):
+        """
+        Integrating function using RK4(?). By default, only the linear terms are considered for integration
+        """
         
+        self.FVort.linear = linear
         
         j0 = 0
-
         k0 = 0 
         k = 0
         self.vortpo[k0, :, :] = self.FVort.vortp
@@ -71,7 +72,7 @@ class Solver:
 
         #using the same numerical scheme as Peter, RK4 or something?
         for j, t in enumerate(tqdm(self.ts)):
-            
+
             self.dthetap[:,:, i0] = self.FVort.theta_tendency()
             self.FVort.thetap  = (1 - eps) * self.FVort.thetap + self.dt / 12. * \
                 (23. * self.dthetap[:,:, i0] - 16. * self.dthetap[:, :,i1] + 5. * self.dthetap[:,:, i2])
@@ -92,7 +93,7 @@ class Solver:
         crds = [np.linspace(0, self.T, self.No), self.sphere.glat.data[:], self.sphere.glon.data[:]]
         vort = xr.DataArray(self.vortpo, name = 'vort', coords = crds, dims = ['time', 'y', 'x'])
         theta   = xr.DataArray(self.thetapo, name = 'theta',   coords = crds, dims = ['time', 'y', 'x'])
-        #return vort
+
         return self.sphere.to_flow(vort,theta)
     
         

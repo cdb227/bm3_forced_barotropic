@@ -16,10 +16,24 @@ Tau = 6*86400
 #rs = 1/Tau
 
 
-### Spectral class which will contain routines to convert from lat/lon to sperical harmonics
 class Sphere:
+    """
+    Spectral class for setting up environment for forced batroptropic sphere
+    contains routines to convert from lat/lon to sperical harmonics
+    """
     def __init__(self, nlat, nlon, U = 0., theta0=300., deltheta= 45.,
                  rsphere=a, legfunc='stored', trunc=None):
+        """
+        initializes sphere for barotropic model.
+        
+        Arguments:
+        * nlat (int) : number of latitude points
+        * nlon (int) : number of longitude points
+        * U (int/float/array) : background zonal mean wind
+        * theta0 (float) : equator temperature
+        * deltheta (float): amplitude of equator-to-pole gradient
+        * rsphere (float) : radius of sphere
+        """
 
         self.nlat = nlat
         self.nlon = nlon
@@ -35,7 +49,6 @@ class Sphere:
             
         
         # lat/lon grid in degrees
-        #self.glat = 90.-180./nlat*np.arange(nlat)
         self.glon = 360./nlon*np.arange(nlon)
         self.glat = np.linspace(90,-90,self.nlat)
         self.glons,self.glats = np.meshgrid(self.glon,self.glat)
@@ -45,6 +58,7 @@ class Sphere:
         self.rlon = np.deg2rad(self.glon)
         self.rlons, self.rlats = np.meshgrid(self.rlon, self.rlat)
         
+        #define zonal mean background wind profiles
         if (type(U) == float) | (type(U) == int):
             U=np.ones(self.glats.shape)*U
         self.U = U
@@ -63,23 +77,18 @@ class Sphere:
         #nondivergent flow
         self.vortp_div = np.zeros(self.rlats.shape, dtype = 'd')
         
-        #mean vorticity field
+        #mean vorticity field based on background winds
         self.vortm,_ = self.uv2vrtdiv(self.U,self.V)
         
         #temperature fields
-        #equator temp
         self.theta0 = theta0
-        #amplitude of eq-pole temp. gradient
         self.deltheta = deltheta
         #temp. distribution
         self.thetaeq = self.theta0 - deltheta*np.sin(self.rlats)**2
+        
         #initial temp of sphere is the equil. temp.
         self.theta = self.thetaeq
         self.dxthetam,self.dythetam  = self.gradient(self.thetaeq)
-        
-        #self.Tautherm = 8*24*60*60 #8 days thermal relaxation
-        
-        #self.Kappa = 0.1*24*60*60 # 0.1 day thermal damping
         
         #nspectral
         #truncation (based on grid)
@@ -91,6 +100,8 @@ class Sphere:
                 self.specindxn * (1. + self.specindxn) / rsphere / rsphere
                 ).astype(np.complex64, casting="same_kind")
         
+    
+    ##+++spectral transforms+++    
     def to_spectral(self, field_grid):
         """Transform a gridded field into spectral space.
         Parameters:
@@ -181,7 +192,9 @@ class Sphere:
         return -f * self._laplacian_eigenvalues
     
     def to_flow(self, vort, theta):
-        # Compute u, v, vort, theta from vortp, thetap solution
+        """
+        Compute u, v, vort, theta from vortp, thetap solution
+        """
         N, Ny, Nx = vort.shape
         uo   = np.zeros((N, Ny, Nx), 'd')
         vo   = np.zeros((N, Ny, Nx), 'd')
@@ -204,6 +217,7 @@ class Sphere:
         u   = xr.DataArray(uo, name = 'u',   coords = crds, dims = ['time', 'y', 'x'])
         v   = xr.DataArray(vo, name = 'v',   coords = crds, dims = ['time', 'y', 'x'])
         return xr.Dataset(data_vars = dict(vort=vort, vortp=vortp, u=u, v=v, thetap=thetap, theta=theta))
+    
     
     ####+++Several possibly useful background flow configurations+++####
     def held_1985(self, A=25., B=30., C=300.):
