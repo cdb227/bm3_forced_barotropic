@@ -1,15 +1,16 @@
 import numpy as np
 import xarray as xr
+
 import cartopy                   
 import cartopy.crs as ccrs
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-import matplotlib.pyplot as plt
+from cartopy.util import add_cyclic_point
+
 import matplotlib as mpl          
 import matplotlib.pyplot as plt    
 import matplotlib.animation as manim
 import matplotlib.ticker as mticker
 import matplotlib.path as mpath
-from cartopy.util import add_cyclic_point
 
 
 
@@ -26,6 +27,7 @@ def make_ax_circular(ax):
     circle = mpath.Path(verts * radius + center) 
     ax.set_boundary(circle, transform=ax.transAxes)
     return ax
+
 def add_gridlines(ax):
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, 
                   linewidth=2, color='gray', alpha=0.5, linestyle='--')

@@ -1,10 +1,7 @@
 import numpy as np
-import spharm
-import random
 from tqdm import tqdm
 import xarray as xr
 
-from forced_barotropic_sphere.sphere import Sphere
 from forced_barotropic_sphere.dynamics import ForcedVorticity
 
 class Solver:
@@ -12,6 +9,15 @@ class Solver:
     Solver class which will integrate the vorticity equation
     """
     def __init__(self,  sphere, forcing, ofreq, ics):
+        """
+        initializes a solver for barotropic model.
+        
+        Arguments:
+        * sphere (Sphere object) : contains spectral methods and grid for integration
+        * forcing (Forcing object) : contains timestep information and forcing to be applied to sphere
+        * ofreq (int) : return model output every ofreq-th step
+        * ics (array : (2,nlat,nlon) : initial conditions of vorticity perturbation and temp perturbation, respectively
+        """
         
         self.sphere = sphere
         
@@ -20,13 +26,13 @@ class Solver:
         self.Nt = int(self.T / self.dt)        
         self.ts = np.arange(self.Nt) * self.dt
         
-        #number of outputs
         self.No = int(self.Nt/ofreq)+1
         self.ofreq = ofreq
         
         self.vortp = ics[0]
         self.thetap = ics[1]
          
+        #temporary storage for integration
         self.dvortp = np.zeros((self.sphere.nlat,self.sphere.nlon, 3), 'd')  
         self.dthetap = np.zeros((self.sphere.nlat,self.sphere.nlon, 3), 'd')
         
@@ -94,7 +100,34 @@ class Solver:
         vort = xr.DataArray(self.vortpo, name = 'vort', coords = crds, dims = ['time', 'y', 'x'])
         theta   = xr.DataArray(self.thetapo, name = 'theta',   coords = crds, dims = ['time', 'y', 'x'])
 
-        return self.sphere.to_flow(vort,theta)
+        return self.to_flow(vort,theta)
+    
+    def to_flow(self, vort, theta):
+        """
+        Compute u, v, vort, theta from vortp, thetap solution
+        """
+        N, Ny, Nx = vort.shape
+        uo   = np.zeros((N, Ny, Nx), 'd')
+        vo   = np.zeros((N, Ny, Nx), 'd')
+        #vortm,_= self.uv2vrtdiv(self.U,self.V)
+
+        for i in range(N):
+            uo[i],vo[i] = self.sphere.vrtdiv2uv(vort[i].values, self.sphere.vortp_div)
+            uo[i] = self.sphere.U + uo[i]
+            #vo[i] = vo
+
+
+        crds = [vort.time[:], vort.y[:], vort.x[:]]
+        vortp = vort.rename('vortp')
+        vort = (vortp + self.sphere.vortm).rename('vort')
+        
+        thetap = theta.rename('thetap')
+        theta = (thetap + self.sphere.thetaeq).rename('theta')
+        
+        #psi = xr.DataArray(psio, name = 'psi', coords = crds, dims = ['time', 'y', 'x'])
+        u   = xr.DataArray(uo, name = 'u',   coords = crds, dims = ['time', 'y', 'x'])
+        v   = xr.DataArray(vo, name = 'v',   coords = crds, dims = ['time', 'y', 'x'])
+        return xr.Dataset(data_vars = dict(vort=vort, vortp=vortp, u=u, v=v, thetap=thetap, theta=theta))
     
         
         

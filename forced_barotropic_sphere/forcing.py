@@ -1,7 +1,5 @@
 import numpy as np
-import spharm
 import random
-from forced_barotropic_sphere.sphere import Sphere
 
 
 ###################################################

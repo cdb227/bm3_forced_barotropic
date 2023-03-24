@@ -1,6 +1,5 @@
 import numpy as np
 import spharm
-import random
 import xarray as xr
 
 
@@ -60,10 +59,9 @@ class Sphere:
         
         #define zonal mean background wind profiles
         if (type(U) == float) | (type(U) == int):
-            U=np.ones(self.glats.shape)*U
+            U = np.full_like(self.glats, U)
         self.U = U
-        self.V= np.zeros(self.U.shape)
-
+        self.V = np.zeros(self.U.shape)
 
         # Constants
         # Earth's angular velocity
@@ -190,33 +188,6 @@ class Sphere:
     def laplace_spectral(self, f):
         """`laplace` with spectral in- and output fields."""
         return -f * self._laplacian_eigenvalues
-    
-    def to_flow(self, vort, theta):
-        """
-        Compute u, v, vort, theta from vortp, thetap solution
-        """
-        N, Ny, Nx = vort.shape
-        uo   = np.zeros((N, Ny, Nx), 'd')
-        vo   = np.zeros((N, Ny, Nx), 'd')
-        #vortm,_= self.uv2vrtdiv(self.U,self.V)
-
-        for i in range(N):
-            uo[i],vo[i] = self.vrtdiv2uv(vort[i].values, self.vortp_div)
-            uo[i] = self.U + uo[i]
-            #vo[i] = vo
-
-
-        crds = [vort.time[:], vort.y[:], vort.x[:]]
-        vortp = vort.rename('vortp')
-        vort = (vortp + self.vortm).rename('vort')
-        
-        thetap = theta.rename('thetap')
-        theta = (thetap + self.thetaeq).rename('theta')
-        
-        #psi = xr.DataArray(psio, name = 'psi', coords = crds, dims = ['time', 'y', 'x'])
-        u   = xr.DataArray(uo, name = 'u',   coords = crds, dims = ['time', 'y', 'x'])
-        v   = xr.DataArray(vo, name = 'v',   coords = crds, dims = ['time', 'y', 'x'])
-        return xr.Dataset(data_vars = dict(vort=vort, vortp=vortp, u=u, v=v, thetap=thetap, theta=theta))
     
     
     ####+++Several possibly useful background flow configurations+++####

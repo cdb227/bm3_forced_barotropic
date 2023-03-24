@@ -1,8 +1,5 @@
 import numpy as np
-import spharm
 import random
-from forced_barotropic_sphere.sphere import Sphere
-from forced_barotropic_sphere.forcing import Forcing
 
 
 ###################################################
@@ -15,10 +12,20 @@ d2r = np.pi / 180. # Factor to convert degrees to radians
 r2d = 180. / np.pi # Factor to convert radians to degrees
 rs = 0.5/86400 #frictional dissipation 0.5 days
 
-### Class which solves a forced vorticity equation using spherical harmonics
 class ForcedVorticity:
+    """
+    Class which contains the right hand side from a forced barotropic sphere
+    """
     def __init__(self, sphere, vortp, thetap, forcing_tseries):
-
+        """
+        terms used in forced baroptropic vorticity
+        
+        Arguments:
+        * sphere (Sphere object) : contains spectral methods and grid for integration
+        * vortp (array; nlat,nlon) : perturbation vorticity field on sphere
+        * thetap (array; nlat,nlon) : perturbation temperature field on sphere
+        * forcing_tseries (Forcing object) : contains timestep information and forcing to be applied to sphere
+        """
 
         self.sphere = sphere
         
@@ -38,8 +45,7 @@ class ForcedVorticity:
         self.Kappa = 0.1*24*60*60 # 0.1 day thermal damping
         self.dxthetam, self.dythetam = self.sphere.gradient(self.sphere.thetaeq)
         
-        #no forcing unless specified
-        self.tstep = 0
+        self.tstep = 0 #keeps track of which index from forcing timseries to be retrieved
         self.forcing_tseries=forcing_tseries
         
         
@@ -66,7 +72,8 @@ class ForcedVorticity:
         #linear advection term
         # -(U*dzetap/dx + U_yy)
         #prescribed zonal advective speed
-        Adv= -(12.*dxvortp) #+ v*self.dyvortm)
+        #Adv= -(12.*dxvortp) #+ v*self.dyvortm)
+        Adv = -(self.sphere.U*dxvortp) 
         
         #nonlinear advection term
         # -(u*dzetap/dx + v*dzetap/dy)
