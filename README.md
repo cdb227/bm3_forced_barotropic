@@ -7,8 +7,16 @@ The purpose of this project is to create an atmosphere toy model to solve forced
 To spatially solve for vorticity, we're using spherical harmonics through the **spharm** Python package. One disadvantage of spectral methods is the presence of Gibbs osciallations, which are apparent in the topography field. The integration scheme is RK4.
 
 The linearized, forced barotropic vorticity equation we are solving for can be written as follows:
-$$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma + F_\zeta - D_\zeta $$
+$$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma - r_s\zeta' + F_\zeta $$
 (derivation below)
+
+$F_\zeta$ includes both predictable forcing (steady) and unpredictable forcing. We may decompose this into $F_\zeta'$ to represent the predictable portion of forcing (shared among ensemble members) and $F_\zeta''$ to represent more random processes (such as convection) that is not shared between members.
+
+In the case of eddy stirring $F_\zeta'$, similar to Linz et al. (2018) we will represent stochastically forced eddies which take the form
+$$
+F_\zeta' = A \exp{\Biggl[ - \Biggl( \frac{( |\phi| - \phi_o)}{\Delta\phi}}\Biggr)^2\Biggr]\text{Re}\Bigl[ \tilde{W} (t)\exp(ik\lambda) \Bigr]
+$$
+where we set the stirring amplitude $A=3x10^{-10}$, the meridional width of eddy stirring as $\Delta\phi=10^\circ$, the stirring latitude as $\phi_o=40^\circ$, the zonal wavenumber as $k=6$. $\tilde{W}(t)$ represents complex white noise with unit variance. 
 
 ## 3. Code Documentation
 
@@ -50,8 +58,9 @@ $$\frac{\partial\zeta '}{\partial t} + \bar{u}\frac{\partial\zeta '}{\partial x}
 $$\frac{\partial\zeta '}{\partial t} + \bar{u}\frac{\partial\zeta '}{\partial x} + v'\gamma = 0 $$
 with $\gamma = (\beta -\frac{\partial^2 \bar u}{\partial y^2})$, the meriodinal gradient in absolute vorticity <br>
 
-This is the basis of the equation we are trying to solve. Rather than freely evolving, we now also add a forcing term $F_\zeta$ (orography, Rossby waves, etc. ) as well as a dissipation term (friction). Rearranging to solve for the vorticity tendency gives:
-$$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma + F_\zeta - D_\zeta $$
+This is the basis of the equation we are trying to solve. Rather than freely evolving, we now also add a forcing term $F_\zeta$ (orography, Rossby waves, etc. ) as well as a dissipation term $r_s\zeta'$, where $r_s$ represents the frictional dissipation rate. Rearranging to solve for the vorticity tendency gives:
+$$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma + F_\zeta - r_s\zeta' $$
+
 
 
 

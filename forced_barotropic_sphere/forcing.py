@@ -34,11 +34,11 @@ class Forcing:
         self.Nt = int(self.T / self.dt)
 
     
-    def generate_stocheddy_tseries(self,A=32e-10):
+    def generate_stocheddy_tseries(self,A=3e-9):
         """Generate a forcing timeseries in grid space of length T"""
         #TODO: generating these t-series of forcing is ugly but will likely be useful for the ensemble cases
         # we want each member to share (some amount) of information about the forcing
-        forcing_tseries = np.zeros((self.Nt+2,len(self.glat),len(self.glon)))
+        forcing_tseries = np.zeros((self.Nt+2,len(self.sphere.glat),len(self.sphere.glon)))
                                    
         stir_lat = 40. #degrees
         stir_width = 10. #degrees
