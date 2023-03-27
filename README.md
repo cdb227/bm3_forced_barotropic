@@ -13,9 +13,7 @@ $$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x
 $F_\zeta$ includes both predictable forcing (steady) and unpredictable forcing. We may decompose this into $F_\zeta'$ to represent the predictable portion of forcing (shared among ensemble members) and $F_\zeta''$ to represent more random processes (such as convection) that is not shared between members.
 
 In the case of eddy stirring $F_\zeta'$, similar to Linz et al. (2018) we will represent stochastically forced eddies which take the form
-$$
-F_\zeta' = A \exp{\left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi}}\right)^2\right]\text{Re}\left[ \tilde{W} (t)\exp(ik\lambda) \right]
-$$
+$$F_\zeta' = A \exp{ \left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi} \right)^2 \right]}\text{Re}\left[ \tilde{W} (t)\exp(ik\lambda) \right]$$
 where we set the stirring amplitude $A=3x10^{-10}$, the meridional width of eddy stirring as $\Delta\phi=10^\circ$, the stirring latitude as $\phi_o=40^\circ$, the zonal wavenumber as $k=6$. $\tilde{W}(t)$ represents complex white noise with unit variance. 
 
 ## 3. Code Documentation
