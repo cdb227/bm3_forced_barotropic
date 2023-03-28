@@ -19,7 +19,8 @@ where we set the stirring amplitude $A=3\times10^{-10}$, the meridional width of
 ## 3. Code Documentation
 
 **Bugs and unwanted features:** Vorticity not plotting correctly if specifying odd number of contour levels
-**Things to check:** Advection from anamolous meridional wind of mean temperature gradient $v'\frac{\partial \bar\theta}{\partial y}$: is $\frac{\partial \bar\theta}{\partial y} = \frac{\partial \theta_eq}{\partial y} $?<br>
+**Things to check:** Advection from anamolous meridional wind of mean temperature gradient $v'\frac{\partial \bar\theta}{\partial y}$: $$\frac{\partial \bar\theta}{\partial y} = \frac{\partial \theta_{eq}}{\partial y}$$?
+<br>
 Hyperdiffusion term only applied to smallest harmonic?
 
 
