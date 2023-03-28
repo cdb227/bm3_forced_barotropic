@@ -55,7 +55,8 @@ class Forcing:
     
     def generate_gaussianblob_tseries(self,forcing_loc=[50,160]):
         forcing_tseries = np.zeros((self.Nt+2,len(self.sphere.glat),len(self.sphere.glon)))
-        A = 10e-10  # s**-2
+        A = 10e-10
+  # s**-2
         gauss_forcing = np.zeros(self.sphere.rlons.shape)
         x, y = np.meshgrid(np.linspace(-1,1,10), np.linspace(-1,1,10))
         d = np.sqrt(x*x+y*y)

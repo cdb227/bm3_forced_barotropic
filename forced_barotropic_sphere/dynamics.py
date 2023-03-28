@@ -10,7 +10,7 @@ Omega = 7.29e-5    # Angular velocity of the earth in rad/s
 g00 = 9.81         # Acceleration due to gravity near the surface of the earth in m/s^2
 d2r = np.pi / 180. # Factor to convert degrees to radians
 r2d = 180. / np.pi # Factor to convert radians to degrees
-rs = 0.5/86400 #frictional dissipation 0.5 days
+d2s = 1/86400      # Factor to convert from days to seconds
 
 class ForcedVorticity:
     """
@@ -41,9 +41,11 @@ class ForcedVorticity:
         self.dxvortm,self.dyvortm = self.sphere.gradient(self.vortm)
         
         self.thetap = thetap
-        self.Tau_relax = 8*24*60*60 #8 days thermal relaxation
-        self.Kappa = 0.1*24*60*60 # 0.1 day thermal damping
+        self.Tau_relax = 8*1/d2s #8 days thermal relaxation
+        self.Kappa = 0.1*1/d2s # 0.1 day thermal damping
         self.dxthetam, self.dythetam = self.sphere.gradient(self.sphere.thetaeq)
+        self.rs = 0.5 * d2s #frictional dissipation 0.5 days,
+
         
         self.tstep = 0 #keeps track of which index from forcing timseries to be retrieved
         self.forcing_tseries=forcing_tseries
@@ -55,24 +57,17 @@ class ForcedVorticity:
     
     def vort_tendency(self):
         """
-        Calculate dvortp/dt as in Linz. et al. (2018)
-        Includes an advective term, beta term, frictional dissipiation and a wave forcing
-        Input: vortp
-        Output: dvortp/dt
+        Calculate dvortp/dt of forced barotropic vorticity equation
+        Includes an advective term, epsilon term, frictional dissipation and a forcing
         """
 
         u,v = self.sphere.vrtdiv2uv(self.vortp, self.vortp_div) #pull out u and v from vorticity field at current timestep
 
         # +++ Dynamics +++ #
-
-        dxvortp,dyvortp= self.sphere.gradient(self.vortp) #find dx zetap
-        
-        #dx
+        dxvortp,dyvortp= self.sphere.gradient(self.vortp) #find dxzetap, dyzetap
         
         #linear advection term
-        # -(U*dzetap/dx + U_yy)
-        #prescribed zonal advective speed
-        #Adv= -(12.*dxvortp) #+ v*self.dyvortm)
+        # -(U*dzetap/dx)
         Adv = -(self.sphere.U*dxvortp) 
         
         #nonlinear advection term
@@ -86,24 +81,28 @@ class ForcedVorticity:
             def K(a,b): return KK(a,self.sphere.gradient(a)[0],b,self.sphere.gradient(b)[1]) # avoids computing da/dx, db/dy twice
             J = (K(self.vortp,psip)-K(psip,self.vortp)) / 3.
         
-        #beta term
-        B = -v*self.sphere.beta
+        #epsilon term
+        #-v(beta-U_yy)
+        B = -v*(self.sphere.beta-self.dyvortm)
         
         #frictional dissipation term
-        Diss = -rs*self.vortp
+        #-r_s*zetap
+        Diss = -self.rs*self.vortp
         
+        #forcing term
         F = self.forcing_tseries[self.tstep,:]
         self.tstep+=1
         
-        return Adv+B+Diss+F+J#+self.sphere.to_grid(hypdif)
+        return Adv+B+Diss+F+J
     
     
     def theta_tendency(self):
+        """
+        Calculate dthetap/dt from winds forced by barotropic system
+        Includes an advective term, thermal relaxation to background state, and hyperdiffusion
+        """
         
         u,v = self.sphere.vrtdiv2uv(self.vortp, self.vortp_div)
-        
-        #we treat the equilibrium temp as the background component?
-        #dxthetam, dythetam = self.sphere.gradient(self.sphere.thetaeq)
         
         dxthetap, dythetap = self.sphere.gradient(self.thetap)
         
