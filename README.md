@@ -18,13 +18,16 @@ where we set the stirring amplitude $A=3\times10^{-10}$, the meridional width of
 
 ## 3. Code Documentation
 
-**Bugs and unwanted features:** Vorticity not plotting correctly if specifying odd number of contour levels
+**Bugs and unwanted features:**<br>
 **Things to check:** Advection from anamolous meridional wind of mean temperature gradient $v'\frac{\partial \bar\theta}{\partial y}$: $$\frac{\partial \bar\theta}{\partial y} = \frac{\partial \theta_{eq}}{\partial y}$$?
 <br>
-Hyperdiffusion term only applied to smallest harmonic?
+Hyperdiffusion term only applied to smallest harmonic? <br>
+Spatially covariance in ensemble perturbations?
 
 
 ## 4. Future Improvements
+Implement some sort of boundary layer paramterization <br>
+Step function to represent sea ice field?
 
 
 ## 5. Derivations
