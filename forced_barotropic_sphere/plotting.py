@@ -53,7 +53,7 @@ def add_gridlines(ax):
 
 
 #+++Plotting Vorticity+++#
-def plot_vort(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=False, ax=None):
+def plot_vort(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=False, ax=None, colorbar=True):
     """
     Plot absolute vorticity on NPS projection, with gridlines. Perturbation=True will plot only the perturbation values
     Can be used to plot on existing axes/figure as well
@@ -75,7 +75,8 @@ def plot_vort(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=Fal
         wrap_data, wrap_lon = add_cyc_point(sln.vort)
         ax.set_title(r"$\zeta$")
     cf= ax.pcolormesh(wrap_lon, sln.y.values, wrap_data*1e5, transform=ccrs.PlateCarree(), cmap = cmap, norm=norm)
-    plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'(x$10^5$ s$^{-1}$)')
+    if colorbar:
+        plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'(x$10^5$ s$^{-1}$)')
     make_ax_circular(ax)
     add_gridlines(ax)
     ax.text(0.5, -0.1, 't = {:.2f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
@@ -83,7 +84,7 @@ def plot_vort(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=Fal
     return ax
 
 #+++Plotting Theta+++#
-def plot_theta(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=False, ax=None):
+def plot_theta(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=False, ax=None, colorbar=True):
     """
     Plot temperature on NPS projection, with gridlines. Perturbation=True will plot only the perturbation values
     Can be used to plot on existing axes/figure as well
@@ -99,7 +100,8 @@ def plot_theta(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=Fa
         wrap_data, wrap_lon = add_cyc_point(sln.theta)
         ax.set_title(r"$\theta$")
     cf= ax.contourf(wrap_lon, sln.y.values, wrap_data, levels=levels, extend='both', transform=ccrs.PlateCarree(), cmap = 'RdBu_r')
-    plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'(K)')
+    if colorbar:
+        plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'(K)')
     add_gridlines(ax)
     make_ax_circular(ax)
     
@@ -109,12 +111,12 @@ def plot_theta(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=Fa
 
 
 #+++Plotting Wind Vectors+++#
-def add_windvecs(ax, sln, thin=4, zanom=True):
+def add_windvecs(ax, sln, thin=3, zanom=True):
     """
     Add wind vectors to an existing figure
     """
     if zanom:
-        q=ax.quiver(sln.x.values[::thin],sln.y.values[::thin], (sln.u - sln.u.mean('x')).values[::thin,::thin], (sln.v - sln.v.mean('x')).values[::thin,::thin], width=0.005, transform=ccrs.PlateCarree(), scale=50, scale_units='inches')
+        q=ax.quiver(sln.x.values[::thin],sln.y.values[::thin], (sln.u - sln.u.mean('x')).values[::thin,::thin], (sln.v - sln.v.mean('x')).values[::thin,::thin], width=0.0075, transform=ccrs.PlateCarree(), scale=40, scale_units='inches')
     else:
         q=ax.quiver(sln.x.values[::thin],sln.y.values[::thin], sln.u.values[::thin,::thin], sln.v.values[::thin,::thin], width=0.005, transform=ccrs.PlateCarree(), scale=50, scale_units='inches')
         
@@ -122,14 +124,14 @@ def add_windvecs(ax, sln, thin=4, zanom=True):
              label='10 m/s', labelpos='N')
     return ax
 
-def plot_overview(sln, levels=[None,None], proj=ccrs.NorthPolarStereo(), perturbation=[False,False]):
+def plot_overview(sln, levels=[None,None], proj=ccrs.NorthPolarStereo(), perturbation=[False,False], colorbar=[True,True]):
     """
     Plot both vorticity and theta on 2 panel plot
     """
     fig, axs = plt.subplots(1,2, subplot_kw={'projection': proj}, figsize=(7,5))
-    plot_vort(sln,ax=axs[0], levels=levels[0], perturbation=perturbation[0])
+    plot_vort(sln,ax=axs[0], levels=levels[0], perturbation=perturbation[0],colorbar=colorbar[0])
     add_windvecs(axs[0], sln)
-    plot_theta(sln,ax=axs[1], levels=levels[1], perturbation=perturbation[1])
+    plot_theta(sln,ax=axs[1], levels=levels[1], perturbation=perturbation[1],colorbar=colorbar[1])
     add_windvecs(axs[1], sln)
     return fig,axs
 
@@ -179,6 +181,38 @@ def plot_bm_occurrence(slns,bmocc, levels=np.arange(0,0.101,0.02), proj=ccrs.Nor
     ax=make_ax_circular(ax)
     ax=add_gridlines(ax)
     return f,ax
+
+def overview_animation(ds, levels=[None,None], proj=ccrs.NorthPolarStereo(), perturbation=[False,False], fr=4, filename='./images/evo.gif'):
+    
+    skip = int(1. / (fr * (ds.time[1] - ds.time[0])))
+    if skip < 1: skip = 1
+   
+    frames = ds.time[::skip]
+    
+    fig, axs = plt.subplots(1,2, subplot_kw={'projection': proj}, figsize=(7,5))
+    
+    plot_vort(ds.sel(time=0),ax=axs[0], levels=levels[0], perturbation=perturbation[0])
+    add_windvecs(axs[0], ds.sel(time=0))
+    plot_theta(ds.sel(time=0),ax=axs[1], levels=levels[1], perturbation=perturbation[1])
+    add_windvecs(axs[1], ds.sel(time=0))
+    
+    def anim(t): 
+        #pbar.value = t
+        #plt.ioff()
+        axs[0].cla()
+        axs[1].cla()
+        plot_vort(ds.sel(time=t),ax=axs[0], levels=levels[0], perturbation=perturbation[0], colorbar=False)
+        add_windvecs(axs[0], ds.sel(time=t))
+
+        plot_theta(ds.sel(time=t),ax=axs[1], levels=levels[1], perturbation=perturbation[1], colorbar=False)
+        add_windvecs(axs[1], ds.sel(time=t))
+
+        #axs.set(xlabel = r'x [$L_d$]', ylabel = r'y [$L_d$]', title = 'PV, t = %.1f' % t)
+        plt.ion()
+        plt.draw()
+    anim = manim.FuncAnimation(fig, anim, frames, repeat=False)
+    
+    anim.save(filename, fps=4, codec='h264', dpi=120)
     
     
         

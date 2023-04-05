@@ -68,7 +68,9 @@ class ForcedVorticity:
         
         #linear advection term
         # -(U*dzetap/dx)
-        Adv = -(self.sphere.U*dxvortp) 
+        #Adv = -(self.sphere.U*dxvortp)
+        #in Linz et al. (2018) Adv term is prescribed as
+        Adv = -12./a * np.gradient(self.vortp, self.sphere.rlon[1]-self.sphere.rlon[0])[0]
         
         #nonlinear advection term
         # -(u*dzetap/dx + v*dzetap/dy)
@@ -109,7 +111,8 @@ class ForcedVorticity:
         
         #linear advection term
         # -(U*dT'/dx + v'*dT/dy)
-        Adv =  -(self.sphere.U * dxthetap + v*self.dythetam)
+        #Adv =  -(self.sphere.U * dxthetap + v*self.dythetam)
+        Adv = v*self.dythetam # as in Linz et al. (2018)?
         
         #nonlinear advection term
         # - (u*dT'/dx + v'*dT'/dy)
