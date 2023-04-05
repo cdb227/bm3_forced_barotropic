@@ -1,10 +1,10 @@
-# bm3_forced_barotropic READ ME
+# bm3_forced_barotropic README
 
 ## 1. Introduction
 The purpose of this project is to create an atmosphere toy model to solve the forced barotropic vorticity equations and apply this model within the context of ensemble forecasts. It has several different settings which can be modified, such as using linear or nonlinear dynamics, different forcing scenarios, the number of ensemble members and how the initial conditions are perturbed. One of the mains goals of this project is to explore how different forcing scenarios or ensemble initialisations can lead to bimodality in ensemble forecasts.
 
 ## 2. Model Dynamics
-To spatially solve for vorticity, we're using spherical harmonics through the **spharm** Python package. One disadvantage of spectral methods is the presence of Gibbs osciallations, which are apparent in the topography field. The integration scheme is RK4.
+To spatially solve for vorticity, we're using spherical harmonics through the **spharm** Python package. One disadvantage of spectral methods is the presence of Gibbs osciallations, which are apparent in the case of rapidly changing vorticity fields. The integration scheme is RK4.
 
 The linearized, forced barotropic vorticity equation we are solving for can be written as follows:
 $$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma - r_s\zeta' + F_\zeta $$
@@ -14,7 +14,22 @@ $F_\zeta$ includes both predictable forcing (steady) and unpredictable forcing. 
 
 In the case of eddy stirring $F_\zeta'$, similar to Linz et al. (2018) we will represent stochastically forced eddies which take the form
 $$F_\zeta' = A \exp{ \left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi} \right)^2 \right]}\text{Re}\left[ \tilde{W} (t)\exp(ik\lambda) \right]$$
-where we set the stirring amplitude $A=3\times10^{-10}$, the meridional width of eddy stirring as $\Delta\phi=10^\circ$, the stirring latitude as $\phi_o=40^\circ$, the zonal wavenumber as $k=6$. $\tilde{W}(t)$ represents complex white noise with unit variance. 
+where we set the stirring amplitude $A=8\times10^{-10}$, the meridional width of eddy stirring as $\Delta\phi=10^\circ$, the stirring latitude as $\phi_o=40^\circ$, the zonal wavenumber as $k=6$. $\tilde{W}(t)$ represents complex white noise with unit variance. 
+
+#### Advection-Diffusion Model
+The advection diffusion model as used in Linz et al (2018) is as follows:
+
+$$\frac{\partial\theta}{\partial t} = -\mathbf{v}\cdot\nabla\theta - \frac{\theta - \theta_{eq}}{\tau} - \kappa\nabla^8\theta$$
+where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is the hyper-diffusion coefficient and \tau is the thermal relaxation timescale. 
+The equilibrium temperature is set to be
+$$ \theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$$
+
+#### Reproducing L18 climatology
+![Figure 1b of Linz et al (2018), representing the climatology produced by their advection-diffusion model](images/L18_fig1b.PNG)
+
+![An integration of our model](images/L18_singlerun.png)
+
+
 
 ## 3. Code Documentation
 
@@ -33,7 +48,7 @@ Step function to represent sea ice field?
 ## 5. Derivations
 
 #### Deriving Vorticity Equation
-$$\require{cancel}$$ 
+
 Beginning with an unforced system, we can write the evolution of absolute vorticity as:
 
 $$\frac{D(F+\zeta)}{Dt} = 0 $$
@@ -60,7 +75,11 @@ $$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x
 
 ## 6. References
 
-Held, Isaac M., et al. “Northern Winter Stationary Waves: Theory and Modeling.” Journal of Climate, vol. 15, no. 16, 2002, pp. 2125–2144. JSTOR, www.jstor.org/stable/26249392. Accessed 15 Dec. 2020.
+Linz, Marianna, Gang Chen, and Zeyuan Hu. "Large‐scale atmospheric control on non‐Gaussian tails of midlatitude temperature distributions." Geophysical Research Letters 45.17 (2018): 9141-9149.
+
+Barnes, Elizabeth A., et al. "Effect of latitude on the persistence of eddy‐driven jets." Geophysical research letters 37.11 (2010).
+
+Held, Isaac M., et al. “Northern Winter Stationary Waves: Theory and Modeling.” Journal of Climate, vol. 15, no. 16, 2002, pp. 2125–2144. JSTOR, www.jstor.org/stable/26249392.
 
 
 
