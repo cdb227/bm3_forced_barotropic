@@ -24,10 +24,8 @@ where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is t
 The equilibrium temperature is set to be
 $$ \theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$$
 
-#### Reproducing L18 climatology
-![Figure 1b of Linz et al (2018), representing the climatology produced by their advection-diffusion model](images/L18_fig1b.PNG)
+[An example evolution of our model. Winds are stirred stochastically, stirring the mean temperature field, creating the "flower pattern" (with the number of petals is equal to zonal wavenumber of the forcing). If the stirring amplitude is not large enough or if the memory is too low, the temperature field relaxes back to the equilibrium temperature (as seen at t=0)](./images/evo.gif)
 
-![An integration of our model](images/L18_singlerun.png)
 
 
 
@@ -71,6 +69,12 @@ with $\gamma = (\beta -\frac{\partial^2 \bar u}{\partial y^2})$, the meriodinal 
 
 This is the basis of the equation we are trying to solve. Rather than freely evolving, we now also add a forcing term $F_\zeta$ (orography, Rossby waves, etc. ) as well as a dissipation term $r_s\zeta'$, where $r_s$ represents the frictional dissipation rate. Rearranging to solve for the vorticity tendency gives:
 $$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma + F_\zeta - r_s\zeta' $$
+
+#### Reproducing L18 climatology
+![Figure 1b of Linz et al (2018), representing the climatology produced by their advection-diffusion model](images/L18_fig1b.PNG)
+
+<!-- ![An integration of our model](images/L18_singlerun.png) -->
+
 
 
 ## 6. References
