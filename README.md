@@ -24,7 +24,7 @@ where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is t
 The equilibrium temperature is set to be
 $$ \theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$$
 
-[An example evolution of our model. Winds are stirred stochastically, stirring the mean temperature field, creating the "flower pattern" (with the number of petals is equal to zonal wavenumber of the forcing). If the stirring amplitude is not large enough or if the memory is too low, the temperature field relaxes back to the equilibrium temperature (as seen at t=0)](images/evo.gif)
+[An example evolution of our model. Winds are stirred stochastically, stirring the mean temperature field, creating the "flower pattern" (with the number of petals is equal to zonal wavenumber of the forcing). If the stirring amplitude is not large enough or if the memory is too low, the temperature field relaxes back to the equilibrium temperature (as seen at t=0)](https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/evo.gif)
 
 
 
