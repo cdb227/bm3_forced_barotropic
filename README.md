@@ -71,7 +71,7 @@ This is the basis of the equation we are trying to solve. Rather than freely evo
 $$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma + F_\zeta - r_s\zeta' $$
 
 #### Reproducing L18 climatology
-![Figure 1b of Linz et al (2018), representing the climatology produced by their advection-diffusion model](images/L18_fig1b.PNG)
+<!-- ![Figure 1b of Linz et al (2018), representing the climatology produced by their advection-diffusion model](images/L18_fig1b.PNG) -->
 
 <!-- ![An integration of our model](images/L18_singlerun.png) -->
 
