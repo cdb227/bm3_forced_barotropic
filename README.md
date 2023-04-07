@@ -28,8 +28,17 @@ $$ \theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$$
 <p align="center">
   <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/evo_compressed.gif" alt="animated" />
 </p>
-An example evolution of our model. Winds are stirred stochastically, stirring the mean temperature field, creating the "flower pattern" (with the number of petals is equal to zonal wavenumber of the forcing). If the stirring amplitude is not large enough or if the memory is too low, the temperature field relaxes back to the equilibrium temperature (as seen at t=0)
+An example evolution of our model. Winds are stirred stochastically, stirring the mean temperature field, creating the "flower pattern" (with the number of petals is equal to zonal wavenumber of the forcing). If the stirring amplitude is not large enough or if the memory is too low, the temperature field relaxes back to the equilibrium temperature (as seen at t=0).
 
+#### Ensemble Run
+
+The following animation depicts an ensemble run, where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from a Gaussian distribution with $\sigma= $. Otherwise, runs are identical (including a shared forcing term). 
+
+<p align="center">
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_point.gif" alt="animated" />
+</p>
+
+While this causes spread for a brief period of time (3 weeks or so), this is ultimately driven by the IC perturbation magnitude, rather than how that IC perturbation develops. Hence why the ensemble members reconverge after a sufficient amount of dampening time. Even including the nonlinear terms into the vorticity equation, the result seems to be about the same. In order to create the nonlinearity we require, we need to introduce a feedback produced by the temperature that affects the vorticity evolution?
 
 
 
