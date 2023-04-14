@@ -32,7 +32,7 @@ An example evolution of our model. Winds are stirred stochastically, stirring th
 
 #### Ensemble Run
 
-The following animation depicts an ensemble run, where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from a Gaussian distribution with $\sigma= $. Otherwise, runs are identical (including a shared forcing term). 
+The following animation depicts an ensemble run, where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from a Gaussian distribution with $\sigma= 1e-6$. Otherwise, runs are identical (including a shared forcing term). 
 
 <p align="center">
   <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_point.gif" alt="animated" />
