@@ -77,6 +77,7 @@ class Sphere:
         
         #mean vorticity field based on background winds
         self.vortm,_ = self.uv2vrtdiv(self.U,self.V)
+        self.dxvortp,self.dyvortm = self.gradient(self.vortm)
         
         #temperature fields
         self.theta0 = theta0
@@ -88,6 +89,10 @@ class Sphere:
         self.theta = self.thetaeq
         self.dxthetam,self.dythetam  = self.gradient(self.thetaeq)
         
+        #perturbation fields (none by default)
+        self.vortp = np.zeros(self.glats.shape)
+        self.thetap= np.zeros(self.glats.shape)
+        
         #nspectral
         #truncation (based on grid)
         self._ntrunc = (self.nlat - 1) if trunc is None else trunc
@@ -97,6 +102,16 @@ class Sphere:
         self._laplacian_eigenvalues = (
                 self.specindxn * (1. + self.specindxn) / rsphere / rsphere
                 ).astype(np.complex64, casting="same_kind")
+        
+        
+    def set_ics(self, ics):
+        """
+        set the perturbation vorticity and temperature field
+        Parameters:
+            ics (array : (2,nlat,nlon) : initial conditions of vorticity perturbation and temp perturbation, respectively
+        """
+        self.vortp = ics[0]
+        self.tehtap = ics[1]
         
     
     ##+++spectral transforms+++    

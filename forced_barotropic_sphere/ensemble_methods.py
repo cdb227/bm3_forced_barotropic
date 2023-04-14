@@ -16,7 +16,7 @@ from forced_barotropic_sphere.forcing import Forcing
 #import bm_methods.bm_methods as bm_methods
 #import forced_barotropic_sphere.bm_methods as bm_methods
 
-def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics, forcing_type='gaussian', n_ens = 5, linear=True, vortpert=0., thetapert=0., forcingpert=0.):
+def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussian', n_ens = 5, linear=True, vortpert=0., thetapert=0., forcingpert=0.):
     """
     Method to generate an ensemble run of the forced barotropic vorticity equation, if desired these can share the same forcing term, or have a weak, ensemble-varying perturbation applied to the forcing. IC pertubations can also be applied to each member.
     """
@@ -29,19 +29,25 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics, forcing_type='gaussian', n
     if forcing_type=='stochastic_eddy':
         F.generate_stocheddy_tseries()
         
+    if ics.any()==None:
+        ics = np.array([np.zeros((nlat,nlon)), np.zeros((nlat,nlon))])
+        
     for ee in range(n_ens): #generate each ensemble member individually and run barotropic model
+        ics_e = np.array([ics[0] + np.random.normal(loc=0., scale = vortpert, size= ics[0].shape),
+                                              ics[1] + np.random.normal(loc=0., scale = thetapert, size=ics[1].shape)])
+            
         st= Sphere(nlat,nlon)
+        st.set_ics(ics_e)
+        
         F_e = F
         
         if ee==0: #'control run'
-            solver = Solver(st, forcing=F, ofreq=ofreq, ics = np.array([ics[0],ics[1]])) # no noise applied to forcing of control run
+            solver = Solver(st, forcing=F, ofreq=ofreq) # no noise applied to forcing of control run
             slns = solver.integrate_dynamics(linear=linear)
             
         else: #each perturbed member
             F_e.forcing_tseries += generate_forcingnoise(F.forcing_tseries, forcingpert)
-            solver = Solver(st, forcing = F_e, ofreq=ofreq, 
-                            ics = np.array([ics[0] + np.random.normal(loc=0., scale = vortpert, size= ics[0].shape),
-                                            ics[1] + np.random.normal(loc=0., scale = thetapert, size=ics[1].shape)])) #apply some noise
+            solver = Solver(st, forcing = F_e, ofreq=ofreq)
             slns = xr.concat([slns,solver.integrate_dynamics(linear=linear)], "ens_mem")
             
     slns = slns.assign_coords(ens_mem= range(n_ens))
@@ -52,6 +58,9 @@ def generate_forcingnoise(forcing, pert= 1e-11):
     """Generate small white noise perturbations to a forcing instance to simulate small scale processes for each ensemble mem."""
     return np.random.normal(loc=0., scale = pert, size= forcing.shape)
 
+
+
+##+++bimodal specific functions+++
 def fit_KDE(ensemble):
     """fit a KDE to a distribution and find the critical points"""
     #TODO: check with our bm conditions? dependent on ensemble size, potentially useful for FP/FN experiments, but we'll likely
@@ -67,7 +76,6 @@ def fit_KDE(ensemble):
         bimodal=True
     return bimodal#, binary_ensemble
 
-    
     
 def find_bimodality(slns):
     """find all isntances in slns in which the ensemble is bimodal using KDE estimation + brute force root finding"""
