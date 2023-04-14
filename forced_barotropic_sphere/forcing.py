@@ -34,7 +34,7 @@ class Forcing:
         self.Nt = int(self.T / self.dt)
 
     
-    def generate_stocheddy_tseries(self,A=3e-9):
+    def generate_stocheddy_tseries(self,A=8e-10):
         """Generate a forcing timeseries in grid space of length T"""
         #TODO: generating these t-series of forcing is ugly but will likely be useful for the ensemble cases
         # we want each member to share (some amount) of information about the forcing
