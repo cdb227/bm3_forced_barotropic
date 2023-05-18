@@ -10,7 +10,7 @@ Omega = 7.29e-5    # Angular velocity of the earth in rad/s
 g00 = 9.81         # Acceleration due to gravity near the surface of the earth in m/s^2
 d2r = np.pi / 180. # Factor to convert degrees to radians
 r2d = 180. / np.pi # Factor to convert radians to degrees
-d2s = 1/86400      # Factor to convert from days to seconds
+d2s = 86400      # Factor to convert from days to seconds
 
 class ForcedVorticity:
     """
@@ -27,9 +27,9 @@ class ForcedVorticity:
 
         self.sphere = sphere
         
-        self.Tau_relax = 8*1/d2s #8 days thermal relaxation
-        self.Kappa = 0.1*1/d2s # 0.1 day thermal damping
-        self.rs = 0.5 * d2s #frictional dissipation 0.5 days,
+        self.Tau_relax = 8*d2s #8 days thermal relaxation timescale
+        self.Kappa = 0.1*d2s # 0.1 day thermal damping
+        self.rs = 1/7. * 1/d2s #frictional dissipation 7 days,
         
         self.tstep = 0 #keeps track of which index from forcing timseries to be retrieved
         self.forcing_tseries=forcing_tseries
@@ -51,9 +51,9 @@ class ForcedVorticity:
         
         #linear advection term
         # -(U*dzetap/dx)
-        #Adv = -(self.sphere.U*dxvortp)
+        Adv = -(self.sphere.U*dxvortp)
         #in Linz et al. (2018) Adv term is prescribed as
-        Adv = -12./a * np.gradient(self.sphere.vortp, self.sphere.rlon[1]-self.sphere.rlon[0])[0]
+        #Adv = -12./a * np.gradient(self.sphere.vortp, self.sphere.rlon[1]-self.sphere.rlon[0])[0]
         
         #nonlinear advection term
         # -(u*dzetap/dx + v*dzetap/dy)
@@ -118,6 +118,54 @@ class ForcedVorticity:
         Diff = - self.Kappa * self.sphere.to_grid(hypdif)
         
         return Adv+Rel+Diff+J
+    
+  
+
+## TO DO: SCM
+# ## Physical constants for SCM
+# a_bar = 0.56 # coalbedo averaged between ice and ocean
+# delta_a = 0.48 # difference in coalbedo between ice and ocean
+# h_alpha = 0.5 # smoothness of albedo transition (m)
+# yr2sec = 3.154e7
+# B = 2.83 # dependence of net surface flux on surface temperature (W/m^2/K)
+# Fb = 0 # upward heat flux into bottom
+# Sm = 100. # downward shortwave annual-mean (W/m^2)
+# Sa = 150. # downward shortwave seasonal amplitude (W/m^2)
+# Lm = 70. # reference longwave annual-mean (W/m^2)
+# La = 41. # reference longwave seasonal amplitude (W/m^2)
+# P = 1.*yr2sec # forcing period (yrs)
+# phi = 0.15*yr2sec # time between summer solstice and peak of longwave forcing (yrs)
+# coHo = 2e8 # heat capacity of ocean mixed layer (J/m^2/K)
+# Li = 3e8 # sea ice latent heat of fusion( J/m^3)
+# zeta = 0.7 # sea ice thermodynamic scale thickness zeta=ki/B (m)
+
+
+        
+# def entropy_tend( T, t = 0, X=0., h_alpha=0.5):
+#     """
+#     Run single column model based on entropy (or T) as in Eisenman and Wagner, which contains sea ice
+#     Reference: "How Climate Model Complexity Influences Sea Ice Stability"
+#     T.J.W. Wagner & I. Eisenman, J Clim 28,10 (2015)
+#     """
+#     E = (T*coHo >= 0)*(T*coHo) + (T=0)*() 
+#     E= T*coHo
+#     A_star = ( a_bar+delta_a/2.*np.tanh(E/ (Li*h_alpha) ) ) * ( Sm-Sa*np.cos(2.*np.pi*t/P) ) - ( Lm+La*np.cos(2*np.pi*(t/P-phi/P)) )
+#     if E>=0:                    #open ocean condition
+#         h_i = 0.
+#         T=E/coHo
+#     elif (E<0) & (A_star > 0): #"melting" condition
+#         h_i = E/-Li
+#         T=0.
+#     elif (E<0) & (A_star < 0): #"freezing" condition
+#         h_i = E/-Li
+#         T= (A_star/B) * (1./(1.+zeta/h_i))
+        
+#     dEdt = A_star-(B*T)+Fb+X 
+    
+#     dTdt = dEdt/coHo
+#     return dEdt
+
+
     
         
 
