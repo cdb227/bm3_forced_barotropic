@@ -10,23 +10,26 @@ The linearized, forced barotropic vorticity equation we are solving for can be w
 $$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma - r_s\zeta' + F $$
 (derivation below)
 
-$F$ includes both predictable forcing (steady) and unpredictable forcing. We may decompose this into $S$ to represent the predictable portion of forcing (shared among ensemble members) and $U$ to represent more random processes (such as convection) that is not shared between members.
+$F$ includes both predictable forcing (steady) and unpredictable forcing. We may decompose this into $S$ to represent the predictable portion of forcing (shared among ensemble members) and $\hat{S}$ to represent more random processes (such as convection) that is not shared between members.
 
 In the case of eddy stirring $S$, similar to Vallis et al. (2003) we will represent red eddies with an Ornstein‐Uhlenbeck stochastic process which takes the form
 
-$$ S_{mn} = Q_i ( 1 - \exp{-2dt/\Tau} ) + \exp{-dt/\Tau}S$$
+$$ S_{mn}^{i} = Q^{i} ( 1 - e^{-2dt/\tau} )^{1/2} + e^{-dt/\tau}S_{mn}^{i-1} $$
 
-Where $Q_i$ is a real number chosen uniformly at random between $(-A,A)$, $A$ being the stirring amplitude ($10^{-11}$). $\Tau$ is the decorrelation time of the stirring. Only total wavenumbers $7<n<13$ are stirred. 
+Where $n$ represents the total spectral wavenumber and $m$ the zonal spectral wavenumber. $Q^i$ is a real number chosen uniformly at random between $(-A,A)$, $A$ being the stirring amplitude ($10^{-11}$). $\tau$ is the decorrelation time of the stirring. Only total wavenumbers $8\le n \le 12$ are stirred. 
 
-A latitude mask of  \exp{ \left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi} \right)^2 \right]} is applied to represent stirring originating from the midlatitudes ($\Delta\phi=10^\circ$ and $\phi_o=40^\circ$).
+A latitude mask of  $\exp{ \left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi} \right)^2 \right]}$ is applied to represent stirring originating from the midlatitudes ($\Delta\phi=10^\circ$ and $\phi_o=40^\circ$).
 
-Following Vallis et al. (2004), a decorrelation timescale for stirring of $\Tau=$2 days is used with a frictional timescale of $1/r_s = $ 7 days. This is a good representation for baroclinic eddies.
+Following Vallis et al. (2004), a decorrelation timescale for stirring of $\tau=$2 days is used with a frictional timescale of $1/r_s = $ 7 days. This is a good representation for baroclinic eddies.
+
 
 #### Advection-Diffusion Model
 The advection diffusion model used is as follows:
 
-$$\frac{\partial\theta}{\partial t} = -\mathbf{v}\cdot\nabla\theta - \frac{\theta - \theta_{eq}}{\tau} - \kappa\nabla^8\theta$$
-where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is the hyper-diffusion coefficient and \tau is the thermal relaxation timescale. 
+$$\frac{\partial\theta}{\partial t} = -\mathbf{v}\cdot\nabla\theta - \frac{\theta - \theta_{eq}}{\tau_t} - \kappa\nabla^8\theta$$
+
+where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is the hyper-diffusion coefficient (0.1 day damping) and $\tau_t$ is the thermal relaxation timescale (8 days). 
+
 The equilibrium temperature is set to be
 $$ \theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$$
 
