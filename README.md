@@ -30,8 +30,10 @@ $$\frac{\partial\theta}{\partial t} = -\mathbf{v}\cdot\nabla\theta - \frac{\thet
 
 where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is the hyper-diffusion coefficient (0.1 day damping) and $\tau_t$ is the thermal relaxation timescale (8 days). 
 
-The equilibrium temperature is set to be
-$$ \theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$$
+The equilibrium temperature is set to be:
+$\theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$
+
+With $\theta_0 = 300 $K and $\Delta\theta\= 45$ K. 
 
 
 #### Example Run
@@ -41,17 +43,30 @@ $$ \theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$$
 </p>
 An example 2-week integration of the model. Winds stir the temperature field. If the stirring amplitude is not large enough or if the eddies decorrelate too quickly, the temperature field relaxes back to the equilibrium temperature (as seen at t=0).
 
-<!-- #### Ensemble Run
+#### Ensemble Run
 
-The following animation depicts an ensemble run, where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from a Gaussian distribution with $\sigma= 1e-6$. Otherwise, runs are identical (including a shared forcing term). 
+In the context of ensemble forecasts, we can run multiples of these models in unison, with perturbations to the IC or forcing scenarios. Ultimately, we would like to see spread develop from the start of the forecast and then saturate, representing an approach to climatology.
+
+The following animation depicts an ensemble run (10 members), where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from a Gaussian distribution with $\sigma= 1e-12$. This represents IC uncertainty. Furthermore, an unpredictable forcing $\hat{S}$ is included in the form of \mathcal{N}(\mu=0,\,\sigma=1e-12) drawn and applied to each timestep for each ensemble member independently. 
 
 <p align="center">
-  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_point.gif" alt="animated" />
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_point_wn.gif" alt="animated" />
 </p>
 
-While this causes spread for a brief period of time (3 weeks or so), this is ultimately driven by the IC perturbation magnitude, rather than how that IC perturbation develops. Hence why the ensemble members reconverge after a sufficient amount of dampening time. Even including the nonlinear terms into the vorticity equation, the result seems to be about the same. In order to create the nonlinearity we require, we need to introduce a feedback produced by the temperature that affects the vorticity evolution?
 
- -->
+Spread seems relatively small, where in reality we would expect forecasts to diverge to a much larger extent over this time period. We can increase the perturbation magnitude, this should have a smaller amplitude than our predictable forcing (the red eddies). True white noise at every gridpoint doesn't seem realistic? 
+
+In reality noise should have some spatial/temporal covariance which would increase ensemble spread? One crude example is introducing $\hat{S}$ to have a similar form as $S$, but with a more rapid decorrelation timescale (1 day) and smaller amplitude (1e-12). This results in the following forecast:
+
+<p align="center">
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_point_rn.gif" alt="animated" />
+</p>
+
+This produces more spread, but the magnitudes still seem low. Furthermore, we still get extended periods of higher spread and lower spread, rather than a saturation? 
+
+
+In order to create the nonlinearity we require for bimodality to form, we need to introduce a feedback produced by the temperature that affects the vorticity evolution?
+
 
 ## 3. Code Documentation
 
