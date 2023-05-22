@@ -15,6 +15,7 @@ from forced_barotropic_sphere.forcing import Forcing
 #pyximport.install(setup_args={"script_args" : ["--verbose"]})
 #import bm_methods.bm_methods as bm_methods
 #import forced_barotropic_sphere.bm_methods as bm_methods
+d2s = 86400
 
 def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussian', n_ens = 5, linear=True, vortpert=0., thetapert=0., forcingpert=0.):
     """
@@ -28,6 +29,8 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussia
         F.generate_gaussianblob_tseries()
     if forcing_type=='stochastic_eddy':
         F.generate_stocheddy_tseries()
+    if forcing_type=='red_eddy':
+        F.generate_rededdy_tseries()
         
     if ics.any()==None:
         ics = np.array([np.zeros((nlat,nlon)), np.zeros((nlat,nlon))])
@@ -46,7 +49,7 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussia
             slns = solver.integrate_dynamics(linear=linear)
             
         else: #each perturbed member
-            F_e.forcing_tseries += generate_forcingnoise(F.forcing_tseries, forcingpert)
+            F_e.forcing_tseries += generate_eddynoise(F, forcingpert)
             solver = Solver(st, forcing = F_e, ofreq=ofreq)
             slns = xr.concat([slns,solver.integrate_dynamics(linear=linear)], "ens_mem")
             
@@ -54,9 +57,32 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussia
     
     return slns
 
-def generate_forcingnoise(forcing, pert= 1e-11):
+def generate_randomnoise(forcing, pert= 1e-12):
     """Generate small white noise perturbations to a forcing instance to simulate small scale processes for each ensemble mem."""
-    return np.random.normal(loc=0., scale = pert, size= forcing.shape)
+    return np.random.normal(loc=0., scale = pert, size= (forcing.Nt+2,len(forcing.sphere.glat),len(forcing.sphere.glon)))
+
+def generate_eddynoise(forcing, Apert = 1e-12):
+    """ Genereate noise perturbations in the form of eddies, rather than pure white noise at each gridpoint
+    """
+    noise_tseries = np.zeros((forcing.Nt+2,len(forcing.sphere.glat),len(forcing.sphere.glon)))
+                                   
+    stir_lat = 40. #degrees
+    stir_width = 10. #degrees
+    lat_mask = np.exp(- ((np.abs(forcing.sphere.glats)-stir_lat)/stir_width)**2 ) #eddy stirring location
+
+    decorr_timescale = 1*d2s #1 days, faster decorrelation timescale
+    Q = np.random.uniform(low=-Apert,high=Apert, size = (forcing.Nt+2,forcing.sphere.nspecindx)) #amplitude for each spectral wavenumber
+
+    stirwn = np.where((4<=forcing.sphere.specindxn) & (forcing.sphere.specindxn<=12),1,0) #force over a larger set of wavenumbers
+
+    Si = Q[0,:]*stirwn
+    for tt in range(1,forcing.Nt+1):
+        Qi = Q[tt,:]*stirwn
+        Si = Qi*(1-np.exp(-2*forcing.dt/decorr_timescale))**(0.5) + np.exp(-forcing.dt/decorr_timescale)*Si
+
+        noise_tseries[tt,:]= forcing.sphere.to_grid(Si)*lat_mask #apply lat mask for midlats.
+
+    return noise_tseries
 
 
 

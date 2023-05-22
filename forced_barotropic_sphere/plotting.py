@@ -161,6 +161,30 @@ def plot_theta_ensspread(sln, levels=None, proj = ccrs.NorthPolarStereo(), ax=No
          verticalalignment='top', transform=ax.transAxes)
     return ax
 
+def plot_zeta_ensspread(sln, levels=None, proj = ccrs.NorthPolarStereo(), ax=None, colorbar=True):
+    """
+    Plot ensemble spread (defined as 1 std of ensemble) of zeta
+    """
+    if ax==None:
+        f = plt.figure(figsize = (5, 5))
+        ax = plt.axes(projection=proj)
+    ax.set_extent([-179.9, 179.9, 30, 90], crs=ccrs.PlateCarree())
+    wrap_data, wrap_lon = add_cyc_point(sln.vortp.std('ens_mem'))
+    ax.set_title(r"$\zeta'$")
+    
+     #temporary addition due to cartopy's bug with certain contourf levels not showing
+    cmap = plt.colormaps['bwr']
+    norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        
+    cf= ax.pcolormesh(wrap_lon, sln.y.values, wrap_data*1e5, transform=ccrs.PlateCarree(), cmap = cmap, norm=norm)
+    if colorbar:
+        plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'Ens. Std. (s$^{-1}$)')
+    ax=make_ax_circular(ax)
+    ax=add_gridlines(ax)
+    ax.text(0.5, -0.1, 't = {:.2f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
+         verticalalignment='top', transform=ax.transAxes)
+    return ax
+
 def plot_ensemble_overview(slns, levels=[None,None,None], proj=ccrs.NorthPolarStereo(), perturbation=[False,False]):
     """
     Plot vorticity and theta of randomly selected member and then the ensemble spread of theta
@@ -269,6 +293,90 @@ def ensspread_point_animation(ds, xy, levels, proj=ccrs.NorthPolarStereo(), fr=4
         ax2.yaxis.tick_right()
         ax2.set_xlabel('time (days)')
         ax2.set_ylabel('Temperature (K)')
+        
+        plt.ion()
+        plt.draw()
+    anim = manim.FuncAnimation(fig, anim, frames, repeat=False)
+    
+    anim.save(filename, fps=6, codec='h264', dpi=120)
+    
+    
+def ensspread_animation(ds, xy, levels, proj=ccrs.NorthPolarStereo(), fr=4, filename='./images/ensspread_evolution.gif'):
+    """
+    Plot the evolution of ensemble spread of the temperature and vorticity field
+    """
+    
+    skip = int(1. / (fr * (ds.time[1] - ds.time[0])))
+    if skip < 1: skip = 1
+   
+    frames = ds.time[::skip]
+    
+    fig = plt.figure(figsize=(6,6))
+    ax1 = plt.subplot(2,2,1, projection = proj) #axes for map
+    ax2 = plt.subplot(2,2,2, projection = proj)
+    ax3 = plt.subplot(2,2,3)#axes for discrete point
+    ax4 = plt.subplot(2,2,4)
+    
+    plot_theta_ensspread(ds.sel(time=0),ax=ax1, levels=levels[0])
+    ax1.scatter(x=xy[0], y=xy[1], transform = ccrs.PlateCarree())
+    
+    plot_zeta_ensspread(ds.sel(time=0), ax=ax2, levels=levels[1])
+    ax2.scatter(x=xy[0], y=xy[1], transform = ccrs.PlateCarree())
+    
+    ax3.set_xlim(0,frames[-1]*s2d)
+    ax4.set_xlim(0,frames[-1]*s2d)
+    
+    #ym1,yM1 = (np.min(ds.theta.sel(x=xy[0], y=xy[1], method='nearest')) -1, np.max(ds.theta.sel(x=xy[0], y=xy[1], method='nearest'))+1)
+    ym1, yM1 = (0, np.max(ds.theta.sel(x=xy[0], y=xy[1], method='nearest').std('ens_mem')))
+    ax3.set_ylim(ym1,yM1)
+    ax3.yaxis.tick_right()
+    ax3.set_xlabel('time (days)')
+    ax3.set_ylabel('Temperature (K)')
+    
+    #ym2,yM2 = (np.min(ds.vort.sel(x=xy[0], y=xy[1], method='nearest')), np.max(ds.vort.sel(x=xy[0], y=xy[1], method='nearest')))
+    ym2,yM2= (0, np.max(ds.vort.sel(x=xy[0], y=xy[1], method='nearest').std('ens_mem')))
+    ax4.set_ylim(ym2,yM2)
+    ax4.yaxis.tick_right()
+    ax4.set_xlabel('time (days)')
+    ax4.set_ylabel(r'Zeta (s$^{-1}$)')
+    ax4.yaxis.set_label_position("right")
+    
+    z=0
+    def anim(t): 
+
+        ax1.cla()
+        ax2.cla()
+        ax3.cla()
+        ax4.cla()
+        
+        plot_theta_ensspread(ds.sel(time=t),ax=ax1, levels=levels[0], colorbar=False)
+        ax1.scatter(x=xy[0], y=xy[1], transform = ccrs.PlateCarree(), color = 'tab:red', zorder=200)
+        
+        plot_zeta_ensspread(ds.sel(time=t),ax=ax2, levels=levels[1], colorbar=False)
+        ax2.scatter(x=xy[0], y=xy[1], transform = ccrs.PlateCarree(), color = 'tab:red', zorder=200)
+        
+        idx = np.where(frames==t)[0][0]
+        z=idx+1
+        
+        X= frames[:z]*s2d
+        #ax3.plot(X, np.array(ds.theta.sel(time=frames[:z]).sel(x=xy[0], y=xy[1], method='nearest')).T, color='tab:blue')
+        #ax4.plot(X, np.array(ds.vort.sel(time=frames[:z]).sel(x=xy[0], y=xy[1], method='nearest')).T, color='tab:blue')
+        ax3.plot(X, np.array(ds.theta.sel(time=frames[:z]).sel(x=xy[0], y=xy[1], method='nearest').std('ens_mem')))
+        ax4.plot(X, np.array(ds.vort.sel(time=frames[:z]).sel(x=xy[0], y=xy[1], method='nearest').std('ens_mem')))
+        
+        ax3.set_ylim(ym1,yM1)
+        ax3.set_xlim(0,frames[-1]*s2d)
+        ax3.yaxis.tick_right()
+        ax3.set_xlabel('time (days)')
+        ax3.set_ylabel('Temperature Std. (K)')
+        
+        ax4.set_ylim(ym2,yM2)
+        ax4.set_xlim(0,frames[-1]*s2d)
+        ax4.yaxis.tick_right()
+        ax4.set_xlabel('time (days)')
+        ax4.set_ylabel(r'Zeta Std. (s$^{-1}$)')
+        ax4.yaxis.set_label_position("right")
+    
         
         plt.ion()
         plt.draw()
