@@ -50,7 +50,7 @@ In the context of ensemble forecasts, we can run multiples of these models in un
 The following animation depicts an ensemble run (10 members), where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from a Gaussian distribution with $\sigma= 1e-12$. This represents IC uncertainty. Furthermore, an unpredictable forcing $\hat{S}$ is included in the form of \mathcal{N}(\mu=0,\,\sigma=1e-12) drawn and applied to each timestep for each ensemble member independently. 
 
 <p align="center">
-  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_point_wn.gif" alt="animated" />
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_evolution_wn.gif" alt="animated" />
 </p>
 
 
@@ -59,7 +59,7 @@ Spread seems relatively small, where in reality we would expect forecasts to div
 In reality noise should have some spatial/temporal covariance which would increase ensemble spread? One crude example is introducing $\hat{S}$ to have a similar form as $S$, but with a more rapid decorrelation timescale (1 day) and smaller amplitude (1e-12). This results in the following forecast:
 
 <p align="center">
-  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_point_rn.gif" alt="animated" />
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_evolution_rn.gif" alt="animated" />
 </p>
 
 This produces more spread, but the magnitudes still seem low. Furthermore, we still get extended periods of higher spread and lower spread, rather than a saturation? 
