@@ -20,7 +20,7 @@ Where $n$ represents the total spectral wavenumber and $m$ the zonal spectral wa
 
 A latitude mask of  $\exp{ \left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi} \right)^2 \right]}$ is applied to represent stirring originating from the midlatitudes ($\Delta\phi=10^\circ$ and $\phi_o=40^\circ$).
 
-Following Vallis et al. (2004), a decorrelation timescale for stirring of $\tau=$2 days is used with a frictional timescale of $1/r_s = $ 7 days. This is a good representation for baroclinic eddies.
+Following Vallis et al. (2004), a decorrelation timescale for stirring of $\tau=$2 days is used with a frictional timescale of $1/r_s =$ 7 days. This is a good representation for baroclinic eddies.
 
 
 #### Advection-Diffusion Model
@@ -33,7 +33,7 @@ where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is t
 The equilibrium temperature is set to be:
 $\theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$
 
-With $\theta_0 = 300 $K and $\Delta\theta\= 45$ K. 
+With $\theta_0 = 300$K and $\Delta\theta\= 45$ K. 
 
 
 #### Example Run
