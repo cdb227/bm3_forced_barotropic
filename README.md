@@ -20,7 +20,7 @@ Where $n$ represents the total spectral wavenumber and $m$ the zonal spectral wa
 
 A latitude mask of  $\exp{ \left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi} \right)^2 \right]}$ is applied to represent stirring originating from the midlatitudes ($\Delta\phi=10^\circ$ and $\phi_o=40^\circ$).
 
-Following Vallis et al. (2004), a decorrelation timescale for stirring of $\tau=$2 days is used with a frictional timescale of $1/r_s =$ 7 days. This is a good representation for baroclinic eddies.
+Following Vallis et al. (2004), a decorrelation timescale for stirring of $\tau=2$ days is used with a frictional timescale of $1/r_s = 7$ days. This is a good representation for baroclinic eddies.
 
 
 #### Advection-Diffusion Model
@@ -33,7 +33,7 @@ where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is t
 The equilibrium temperature is set to be:
 $\theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$
 
-With $\theta_0 = 300$K and $\Delta\theta= 45$ K. 
+With $\theta_0 = 300$ K and $\Delta\theta=45$ K. 
 
 
 #### Example Run
@@ -47,7 +47,7 @@ An example 2-week integration of the model. Winds stir the temperature field. If
 
 In the context of ensemble forecasts, we can run multiples of these models in unison, with perturbations to the IC or forcing scenarios. Ultimately, we would like to see spread develop from the start of the forecast and then saturate, representing an approach to climatology.
 
-The following animation depicts an ensemble run (10 members), where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from a Gaussian distribution with $\sigma= 1e-12$. This represents IC uncertainty. Furthermore, an unpredictable forcing $\hat{S}$ is included in the form of \mathcal{N}(\mu=0,\,\sigma=1e-12) drawn and applied to each timestep for each ensemble member independently. 
+The following animation depicts an ensemble run (10 members), where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from $\mathcal{N}(\mu=0,\sigma=1e-12)$. This represents IC uncertainty. Furthermore, an unpredictable forcing $\hat{S}$ is included in the form of $\mathcal{N}(\mu=0,\sigma=1e-12)$ drawn and applied to each timestep for each ensemble member independently. 
 
 <p align="center">
   <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_evolution_wn.gif" alt="animated" />
