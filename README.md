@@ -33,7 +33,7 @@ where $\mathbf{v}$ is determined by the solved vorticity equation, $\kappa$ is t
 The equilibrium temperature is set to be:
 $\theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$
 
-With $\theta_0 = 300$K and $\Delta\theta\= 45$ K. 
+With $\theta_0 = 300$K and $\Delta\theta= 45$ K. 
 
 
 #### Example Run
