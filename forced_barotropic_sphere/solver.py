@@ -38,12 +38,13 @@ class Solver:
         
         self.FVort = ForcedVorticity(self.sphere, forcing.forcing_tseries)
             
-    def integrate_dynamics(self, linear=True):
+    def integrate_dynamics(self, temp_linear=True, vort_linear=True):
         """
         Integrating function using RK4(?). By default, only the linear terms are considered for integration
         """
         
-        self.FVort.linear = linear
+        self.FVort.temp_linear = temp_linear
+        self.FVort.vort_linear = vort_linear
         
         j0 = 0
         k0 = 0 

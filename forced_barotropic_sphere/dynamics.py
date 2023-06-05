@@ -35,8 +35,8 @@ class ForcedVorticity:
         self.forcing_tseries=forcing_tseries
         
         #whether to use linear or nonlinear advection
-        self.linear = True #linear by default
- 
+        self.temp_linear = True #linear by default
+        self.vort_linear = True
     
     def vort_tendency(self):
         """
@@ -58,7 +58,7 @@ class ForcedVorticity:
         #nonlinear advection term
         # -(u*dzetap/dx + v*dzetap/dy)
         J=0.
-        if not self.linear:
+        if not self.vort_linear:
             psip = self.sphere.laplace(self.sphere.vortp)
             #use arakawa jacobian to deal to numerical instabilities from perturbations
             ##J = - (u*dxvortp + v*dyvortp)
@@ -100,7 +100,7 @@ class ForcedVorticity:
         #nonlinear advection term
         # - (u*dT'/dx + v'*dT'/dy)
         J=0.
-        if not self.linear:
+        if not self.temp_linear:
             psip = self.sphere.laplace(self.sphere.vortp)
             #use arakawa jacobian to deal to numerical instabilities from perturbation
             def KK(a,dadx,b,dbdy): return dadx*dbdy + self.sphere.gradient(a*dbdy)[0] + self.sphere.gradient(b*dadx)[1]

@@ -17,7 +17,7 @@ from forced_barotropic_sphere.forcing import Forcing
 #import forced_barotropic_sphere.bm_methods as bm_methods
 d2s = 86400
 
-def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussian', n_ens = 5, linear=True, vortpert=0., thetapert=0., forcingpert=0.):
+def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussian', n_ens = 5, temp_linear=True, vort_linear=True, vortpert=0., thetapert=0., forcingpert=0.):
     """
     Method to generate an ensemble run of the forced barotropic vorticity equation, if desired these can share the same forcing term, or have a weak, ensemble-varying perturbation applied to the forcing. IC pertubations can also be applied to each member.
     """
@@ -51,7 +51,7 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussia
         else: #each perturbed member
             F_e.forcing_tseries += generate_eddynoise(F, forcingpert)
             solver = Solver(st, forcing = F_e, ofreq=ofreq)
-            slns = xr.concat([slns,solver.integrate_dynamics(linear=linear)], "ens_mem")
+            slns = xr.concat([slns,solver.integrate_dynamics(temp_linear=temp_linear,vort_linear=vort_linear)], "ens_mem")
             
     slns = slns.assign_coords(ens_mem= range(n_ens))
     
