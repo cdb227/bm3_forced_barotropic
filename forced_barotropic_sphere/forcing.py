@@ -51,29 +51,42 @@ class Forcing:
             forcing_tseries[tt,:]= A*lat_mask*self.sphere.to_grid(np.real(W*self.sphere.to_spectral(np.exp(1.j*wn_forcing*self.sphere.rlons))))
             
         self.forcing_tseries=forcing_tseries
+        
+    def generate_rededdy_start(self):
+
+        Ai= np.random.normal(0, 1, size=(self.sphere.nspecindx))
+        Bi= np.random.normal(0, 1, size=(self.sphere.nspecindx))
+        
+        Si = (Ai+1j*Bi)
+        
+        return Si
        
-    def generate_rededdy_tseries(self,A=1e-11):
+    def generate_rededdy_tseries(self, Si, A=1e-11):
         """Generate a forcing timeseries in grid space of length T"""
         #Red Eddys represented by O-U stochastic process
-        forcing_tseries = np.zeros((self.Nt+2,len(self.sphere.glat),len(self.sphere.glon)))
+        forcing_tseries = np.zeros((self.Nt+2,len(self.sphere.glat),len(self.sphere.glon)), 'd')
                                    
         stir_lat = 40. #degrees
         stir_width = 10. #degrees
         lat_mask = np.exp(- ((np.abs(self.sphere.glats)-stir_lat)/stir_width)**2 ) #eddy stirring location
+        decorr_timescale = 7*d2s #2 days
+                
+        stirwn = np.where((8<=self.sphere.specindxn) & (self.sphere.specindxn<=12) ,1,0) #force over a set of wavenumbers
         
-        decorr_timescale = 2*d2s #2 days
-        Q = np.random.uniform(low=-A,high=A, size = (self.Nt+2,self.sphere.nspecindx)) #amplitude for each spectral wavenumber
         
-        stirwn = np.where((8<=self.sphere.specindxn) & (self.sphere.specindxn<=12),1,0) #force over a set of wavenumbers
-        
-        Si = Q[0,:]*stirwn
+        forcing_tseries[0,:] = self.sphere.to_grid(Si*stirwn)
         for tt in range(1,self.Nt+1):
-            Qi = Q[tt,:]*stirwn
-            Si = Qi*(1-np.exp(-2*self.dt/decorr_timescale))**(0.5) + np.exp(-self.dt/decorr_timescale)*Si
+            Ai= np.random.normal(0, 1, size=(self.sphere.nspecindx))
+            Bi= np.random.normal(0, 1, size=(self.sphere.nspecindx))
             
-            forcing_tseries[tt,:]= self.sphere.to_grid(Si)*lat_mask #apply lat mask for midlats.
+            Si = (Ai+1j*Bi)*(1-np.exp(-2*self.dt/decorr_timescale))**(0.5) + np.exp(-self.dt/decorr_timescale)*Si
             
-        self.forcing_tseries=forcing_tseries
+            forcing_tseries[tt,:]=  self.sphere.to_grid((Si*stirwn))
+                    
+            
+        self.forcing_tseries = A*forcing_tseries*lat_mask[None,:,:]
+        return self.forcing_tseries
+        
     
     def generate_gaussianblob_tseries(self,forcing_loc=[50,160]):
         """

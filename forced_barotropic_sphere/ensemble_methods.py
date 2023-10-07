@@ -19,43 +19,68 @@ d2s = 86400
 
 def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussian', n_ens = 5, temp_linear=True, vort_linear=True, vortpert=0., thetapert=0., forcingpert=0.):
     """
-    Method to generate an ensemble run of the forced barotropic vorticity equation, if desired these can share the same forcing term, or have a weak, ensemble-varying perturbation applied to the forcing. IC pertubations can also be applied to each member.
+    Function to generate an ensemble of forced barotropic model, if desired these can share the same forcing term, or have a weak, ensemble-varying perturbation applied to the forcing. IC pertubations can also be applied to each member.
     """
-    st= Sphere(nlat,nlon)
-    F = Forcing(st,dt,T)
+#     st= Sphere(nlat,nlon)
+#     F = Forcing(st,dt,T)
     
-    #generate single forcing run to be used by each ensemble member
-    if forcing_type=='gaussian': 
-        F.generate_gaussianblob_tseries()
-    if forcing_type=='stochastic_eddy':
-        F.generate_stocheddy_tseries()
-    if forcing_type=='red_eddy':
-        F.generate_rededdy_tseries()
+#     #generate single forcing run to be used by each ensemble member
+# #     if forcing_type=='gaussian': 
+# #         F.generate_gaussianblob_tseries()
+# #     if forcing_type=='stochastic_eddy':
+# #         F.generate_stocheddy_tseries()
+#     if forcing_type=='red_eddy':
+#         F.generate_rededdy_tseries()
         
     if ics.any()==None:
         ics = np.array([np.zeros((nlat,nlon)), np.zeros((nlat,nlon))])
-        
-    for ee in range(n_ens): #generate each ensemble member individually and run barotropic model
+    
+    for ee in tqdm(range(n_ens)): #generate each ensemble member individually and run barotropic model
         ics_e = np.array([ics[0] + np.random.normal(loc=0., scale = vortpert, size= ics[0].shape),
                                               ics[1] + np.random.normal(loc=0., scale = thetapert, size=ics[1].shape)])
             
         st= Sphere(nlat,nlon)
         st.set_ics(ics_e)
         
-        F_e = F
-        
         if ee==0: #'control run'
+            F = Forcing(st,dt,T)
+            Si = F.generate_rededdy_start()
+            F.generate_rededdy_tseries(A=5e-12, Si=Si)
+            
             solver = Solver(st, forcing=F, ofreq=ofreq) # no noise applied to forcing of control run
-            slns = solver.integrate_dynamics(linear=linear)
+            slns = solver.integrate_dynamics(temp_linear=temp_linear, vort_linear=vort_linear)
             
         else: #each perturbed member
-            F_e.forcing_tseries += generate_eddynoise(F, forcingpert)
-            solver = Solver(st, forcing = F_e, ofreq=ofreq)
+            F.generate_rededdy_tseries(A=5e-12, Si=Si)
+            
+            solver = Solver(st, forcing = F, ofreq=ofreq)
             slns = xr.concat([slns,solver.integrate_dynamics(temp_linear=temp_linear,vort_linear=vort_linear)], "ens_mem")
             
     slns = slns.assign_coords(ens_mem= range(n_ens))
     
     return slns
+
+def generate_ensemble_forcing(nlat, nlon, dt, T, n_ens = 5):
+    
+    Nt = T//dt
+    f = np.empty((n_ens,Nt+2,nlat,nlon))
+    
+    for ee in tqdm(range(n_ens)): #generate each ensemble member individually and run barotropic model            
+        st= Sphere(nlat,nlon)
+        
+        if ee==0: #'control run'
+            F = Forcing(st,dt,T)
+            Si = F.generate_rededdy_start()
+            
+            f[ee,:] = F.generate_rededdy_tseries(A=1, Si=Si)
+            
+        else: #each perturbed member
+            Si = F.generate_rededdy_start()
+
+            f[ee,:] = F.generate_rededdy_tseries(A=1, Si=Si)
+                        
+    return f
+    
 
 def generate_randomnoise(forcing, pert= 1e-12):
     """Generate small white noise perturbations to a forcing instance to simulate small scale processes for each ensemble mem."""
@@ -70,10 +95,10 @@ def generate_eddynoise(forcing, Apert = 1e-12):
     stir_width = 10. #degrees
     lat_mask = np.exp(- ((np.abs(forcing.sphere.glats)-stir_lat)/stir_width)**2 ) #eddy stirring location
 
-    decorr_timescale = 1*d2s #1 days, faster decorrelation timescale
+    decorr_timescale = 2*d2s #1 days, faster decorrelation timescale
     Q = np.random.uniform(low=-Apert,high=Apert, size = (forcing.Nt+2,forcing.sphere.nspecindx)) #amplitude for each spectral wavenumber
 
-    stirwn = np.where((4<=forcing.sphere.specindxn) & (forcing.sphere.specindxn<=12),1,0) #force over a larger set of wavenumbers
+    stirwn = np.where((8<=forcing.sphere.specindxn) & (forcing.sphere.specindxn<=12),1,0) #force over a larger set of wavenumbers
 
     Si = Q[0,:]*stirwn
     for tt in range(1,forcing.Nt+1):
