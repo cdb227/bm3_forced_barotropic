@@ -60,6 +60,7 @@ class Sphere:
         #define zonal mean background wind profiles
         if (type(U) == float) | (type(U) == int):
             U = np.full_like(self.glats, U)
+            #U = np.
         self.U = U
         self.V = np.zeros(self.U.shape)
 

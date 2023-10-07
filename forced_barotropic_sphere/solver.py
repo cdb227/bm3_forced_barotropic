@@ -74,7 +74,7 @@ class Solver:
         i0 = 2
 
         #using the same numerical scheme as Peter, RK4 or something?
-        for j, t in enumerate(tqdm(self.ts)):
+        for j, t in enumerate(self.ts):
 
             self.dthetap[:,:, i0] = self.FVort.theta_tendency()
             self.sphere.thetap  = (1 - eps) * self.sphere.thetap + self.dt / 12. * \

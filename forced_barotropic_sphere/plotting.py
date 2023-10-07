@@ -178,7 +178,7 @@ def plot_zeta_ensspread(sln, levels=None, proj = ccrs.NorthPolarStereo(), ax=Non
         
     cf= ax.pcolormesh(wrap_lon, sln.y.values, wrap_data*1e5, transform=ccrs.PlateCarree(), cmap = cmap, norm=norm)
     if colorbar:
-        plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'Ens. Std. (s$^{-1}$)')
+        plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'Ens. Std. ($\times$10$^5$ s$^{-1}$)')
     ax=make_ax_circular(ax)
     ax=add_gridlines(ax)
     ax.text(0.5, -0.1, 't = {:.2f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
