@@ -17,9 +17,9 @@ from forced_barotropic_sphere.forcing import Forcing
 #import forced_barotropic_sphere.bm_methods as bm_methods
 d2s = 86400
 
-def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussian', n_ens = 5, temp_linear=True, vort_linear=True, vortpert=0., thetapert=0., forcingpert=0.):
+def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussian', n_ens = 5, temp_linear=True, vort_linear=True, vortpert=0., thetapert=0., forcingpert=0., share_forcing=True):
     """
-    Function to generate an ensemble of forced barotropic model, if desired these can share the same forcing term, or have a weak, ensemble-varying perturbation applied to the forcing. IC pertubations can also be applied to each member.
+    Function to generate an ensemble of forced barotropic model, these are initialized with the same forcing term, which decorrelates after about a week.
     """
 #     st= Sphere(nlat,nlon)
 #     F = Forcing(st,dt,T)
@@ -34,7 +34,7 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussia
         
     if ics.any()==None:
         ics = np.array([np.zeros((nlat,nlon)), np.zeros((nlat,nlon))])
-    
+    slns=[]
     for ee in tqdm(range(n_ens)): #generate each ensemble member individually and run barotropic model
         ics_e = np.array([ics[0] + np.random.normal(loc=0., scale = vortpert, size= ics[0].shape),
                                               ics[1] + np.random.normal(loc=0., scale = thetapert, size=ics[1].shape)])
@@ -48,15 +48,18 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, forcing_type='gaussia
             F.generate_rededdy_tseries(A=5e-12, Si=Si)
             
             solver = Solver(st, forcing=F, ofreq=ofreq) # no noise applied to forcing of control run
-            slns = solver.integrate_dynamics(temp_linear=temp_linear, vort_linear=vort_linear)
+            slns.append(solver.integrate_dynamics(temp_linear=temp_linear, vort_linear=vort_linear))
             
         else: #each perturbed member
+            if not share_forcing:
+                Si = F.generate_rededdy_start()
             F.generate_rededdy_tseries(A=5e-12, Si=Si)
             
             solver = Solver(st, forcing = F, ofreq=ofreq)
-            slns = xr.concat([slns,solver.integrate_dynamics(temp_linear=temp_linear,vort_linear=vort_linear)], "ens_mem")
+            slns.append(solver.integrate_dynamics(temp_linear=temp_linear,vort_linear=vort_linear))
+    slns = xr.concat(slns,dim= "ens_mem")
             
-    slns = slns.assign_coords(ens_mem= range(n_ens))
+    #slns = slns.assign_coords(ens_mem= range(n_ens))
     
     return slns
 
@@ -65,7 +68,7 @@ def generate_ensemble_forcing(nlat, nlon, dt, T, n_ens = 5):
     Nt = T//dt
     f = np.empty((n_ens,Nt+2,nlat,nlon))
     
-    for ee in tqdm(range(n_ens)): #generate each ensemble member individually and run barotropic model            
+    for ee in tqdm(range(n_ens)): #generate each ensemble member individually          
         st= Sphere(nlat,nlon)
         
         if ee==0: #'control run'
