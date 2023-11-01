@@ -10,20 +10,18 @@ The linearized, forced barotropic vorticity equation we are solving for can be w
 $$\frac{\partial\zeta '}{\partial t}= - \bar{u}\frac{\partial\zeta '}{\partial x} - v'\gamma - r_s\zeta' + F $$
 (derivation below)
 
-$F$ includes both predictable forcing (steady) and unpredictable forcing. We may decompose this into $S$ to represent the predictable portion of forcing (shared among ensemble members) and $\hat{S}$ to represent more random processes (such as convection) that is not shared between members.
+In the case of eddy stirring, similar to Vallis et al. (2003) we will represent red eddy forcing with an Ornstein‐Uhlenbeck stochastic process which takes the form
 
-In the case of eddy stirring $S$, similar to Vallis et al. (2003) we will represent red eddies with an Ornstein‐Uhlenbeck stochastic process which takes the form
+$$ F_{mn}^{t} = Q^{t} ( 1 - e^{-2dt/\tau} )^{1/2} + e^{-dt/\tau}F_{mn}^{t-1} $$
 
-$$ S_{mn}^{i} = Q^{i} ( 1 - e^{-2dt/\tau} )^{1/2} + e^{-dt/\tau}S_{mn}^{i-1} $$
-
-Where $n$ represents the total spectral wavenumber and $m$ the zonal spectral wavenumber. $Q^i$ is a real number chosen uniformly at random between $(-A,A)$, $A$ being the stirring amplitude ($10^{-11}$). $\tau$ is the decorrelation time of the stirring. Only total wavenumbers $8\le n \le 12$ are stirred. 
+Where $n$ represents the total spectral wavenumber and $m$ the zonal spectral wavenumber. $\tilde{Q}^t$ is a complex number of the form $\tilde{Q}^t = a^t+ b^t i$ where $a$ and $b$ are drawn from $\mathcal{N}(\mu=0,\sigma=A)$, $A$ representing the stirring amplitude. $\tau$ is the decorrelation time of the stirring. Only total wavenumbers $8\le n \le 12$ are stirred. 
 
 A latitude mask of  $\exp{ \left[ - \left( \frac{( |\phi| - \phi_o)}{\Delta\phi} \right)^2 \right]}$ is applied to represent stirring originating from the midlatitudes ($\Delta\phi=10^\circ$ and $\phi_o=40^\circ$).
 
-Following Vallis et al. (2004), a decorrelation timescale for stirring of $\tau=2$ days is used with a frictional timescale of $1/r_s = 7$ days. This is a good representation for baroclinic eddies.
+A decorrelation timescale for stirring of $\tau=7$ days is used with a frictional timescale of $1/r_s = 7$ days. This is a good representation for baroclinic eddies.
 
 
-#### Advection-Diffusion Model
+#### 2.1 Advection-Diffusion Model
 The advection diffusion model used is as follows:
 
 $$\frac{\partial\theta}{\partial t} = -\mathbf{v}\cdot\nabla\theta - \frac{\theta - \theta_{eq}}{\tau_t} - \kappa\nabla^8\theta$$
@@ -36,36 +34,36 @@ $\theta_{eq} = \theta_0 - \Delta\theta\sin^2\phi$
 With $\theta_0 = 300$ K and $\Delta\theta=45$ K. 
 
 
-#### Example Run
+#### 2.2 Example Run
 
 <p align="center">
   <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/evo.gif" alt="animated" />
 </p>
-An example 2-week integration of the model. Winds stir the temperature field. If the stirring amplitude is not large enough or if the eddies decorrelate too quickly, the temperature field relaxes back to the equilibrium temperature (as seen at t=0).
+<p align="center">
+  <em>An example 3-week integration of the model. Winds stir the temperature field. The complex forcing term ensures that individual wave numbers are phase shifted relative to one another, removing zonally-dependent mixing over time.</em>
+</p>
+
+
+##### 2.2.3 Development of Climatology
+
+We can run a single integration for a very long time to develop an idea of the climatological spread that develops as a function of latitude due to $F$. Since we rotate the waves, this should be zonally symmetric. This allows to develop a formal definition of climatology in our model.
 
 #### Ensemble Run
 
-In the context of ensemble forecasts, we can run multiples of these models in unison, with perturbations to the IC or forcing scenarios. Ultimately, we would like to see spread develop from the start of the forecast and then saturate, representing an approach to climatology.
+In the context of ensemble forecasts, we can run multiples of these models in unison, with perturbations applied to the IC or forcing. Ultimately, we would like to see spread develop from the start of the forecast and then saturate, representing an approach to climatology. We may use our formal definition of climatology (see section 2.2.3) to check this.
 
-The following animation depicts an ensemble run (10 members), where purely random white noise is applied to each gridpoint of each ensemble member at t=0 of the vorticity field. White noise is drawn from $\mathcal{N}(\mu=0,\sigma=1e-12)$. This represents IC uncertainty. Furthermore, an unpredictable forcing $\hat{S}$ is included in the form of $\mathcal{N}(\mu=0,\sigma=1e-12)$ drawn and applied to each timestep for each ensemble member independently. 
+For this model, ensemble members share a common forcing $F$ at the time of initialization (i.e., $F^{t=0}$ is identical among ensemble members) but $F$ then develops independently over time for each member. This represents the predictable forcing eventually breaking down with the existence of unpredictable forcings (baroclinicity). The timescale of this process is proportional to the decorrelation timescale of $F$.
+
 
 <p align="center">
-  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_evolution_wn.gif" alt="animated" />
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensemble_sim.png"  />
 </p>
-
-
-Spread seems relatively small, where in reality we would expect forecasts to diverge to a much larger extent over this time period. We can increase the perturbation magnitude, this should have a smaller amplitude than our predictable forcing (the red eddies). True white noise at every gridpoint doesn't seem realistic? 
-
-In reality noise should have some spatial/temporal covariance which would increase ensemble spread? One crude example is introducing $\hat{S}$ to have a similar form as $S$, but with a more rapid decorrelation timescale (1 day) and smaller amplitude (1e-12). This results in the following forecast:
-
 <p align="center">
-  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensspread_evolution_rn.gif" alt="animated" />
+  <em>
+  A 200-member ensemble run, where no IC perturbations are applied, but ensemble forcings decorrelate over time. A randomly selected point is used to show how ensemble spread develops over time (second row). The spread over all longitudes at that latitude is also shown (third row). Dashed lines indicate when the ensemble has formally approached the climatological spread. 
+  </em>
 </p>
 
-This produces more spread, but the magnitudes still seem low. Furthermore, we still get extended periods of higher spread and lower spread, rather than a saturation? 
-
-
-In order to create the nonlinearity we require for bimodality to form, we need to introduce a feedback produced by the temperature that affects the vorticity evolution?
 
 
 ## 3. Code Documentation
@@ -74,13 +72,11 @@ In order to create the nonlinearity we require for bimodality to form, we need t
 **Things to check:** Advection from anamolous meridional wind of mean temperature gradient $v'\frac{\partial \bar\theta}{\partial y}$: $\frac{\partial \bar\theta}{\partial y} = \frac{\partial \theta_{eq}}{\partial y}$?
 <br>
 Hyperdiffusion term only applied to smallest harmonic? <br>
-Spatial covariance in ensemble perturbations?
-
+Spatial covariance in ensemble perturbations of IC?
 
 ## 4. Future Improvements
 Implement some sort of boundary layer paramterization <br>
 Step function to represent sea ice field?
-
 
 ## 5. Derivations
 
