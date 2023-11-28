@@ -81,7 +81,7 @@ def plot_vort(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=Fal
         plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'(x$10^5$ s$^{-1}$)')
     make_ax_circular(ax)
     add_gridlines(ax)
-    ax.text(0.5, -0.1, 't = {:.2f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
+    ax.text(0.5, -0.1, 't = {:.0f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
          verticalalignment='top', transform=ax.transAxes)
     return ax
 
@@ -101,13 +101,18 @@ def plot_theta(sln, levels=None, proj = ccrs.NorthPolarStereo(), perturbation=Fa
     else:
         wrap_data, wrap_lon = add_cyc_point(sln.theta)
         ax.set_title(r"$\theta$")
-    cf= ax.contourf(wrap_lon, sln.y.values, wrap_data, levels=levels, extend='both', transform=ccrs.PlateCarree(), cmap = 'RdBu_r')
+        
+    cmap = plt.colormaps['RdBu_r']
+    norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+#     cf= ax.contourf(wrap_lon, sln.y.values, wrap_data, levels=levels, extend='both', transform=ccrs.PlateCarree(), cmap = 'RdBu_r')
+    cf= ax.pcolormesh(wrap_lon, sln.y.values, wrap_data, transform=ccrs.PlateCarree(), cmap = cmap,norm=norm)
+
     if colorbar:
         plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'(K)')
     add_gridlines(ax)
     make_ax_circular(ax)
     
-    ax.text(0.5, -0.1, 't = {:.2f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
+    ax.text(0.5, -0.1, 't = {:.0f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
          verticalalignment='top', transform=ax.transAxes)
     return ax
 
