@@ -56,13 +56,6 @@ class Sphere:
         self.rlat = np.deg2rad(self.glat)
         self.rlon = np.deg2rad(self.glon)
         self.rlons, self.rlats = np.meshgrid(self.rlon, self.rlat)
-        
-        #define zonal mean background wind profiles
-        if (type(U) == float) | (type(U) == int):
-            U = np.full_like(self.glats, U)
-            #U = np.
-        self.U = U
-        self.V = np.zeros(self.U.shape)
 
         # Constants
         # Earth's angular velocity
@@ -72,6 +65,11 @@ class Sphere:
         #beta
         self.f =  2.*self.omega*np.sin(self.rlats)
         self.beta = 2.*self.omega*np.cos(self.rlats)/rsphere
+        
+        #define zonal mean background wind profiles
+        self.U = 10.*np.cos(self.rlats)
+        self.V = np.zeros(self.U.shape)
+        
         
         #nondivergent flow
         self.vortp_div = np.zeros(self.rlats.shape, dtype = 'd')
@@ -86,9 +84,17 @@ class Sphere:
         #temp. distribution
         self.thetaeq = self.theta0 - deltheta*np.sin(self.rlats)**2
         
+        #+++Addition of step function in temperature+++#
+        sc = 50. #ice edge location
+        sw = 1 #transition width (degrees lat)
+        sh = 10# temperature difference (K)
+        seaice = sh*np.tanh((self.rlats-np.radians(sc))*(1./np.radians(sw)))
+        seaice[seaice<0]=0.
+        #self.thetaeq = self.thetaeq-seaice
+        
         #initial temp of sphere is the equil. temp.
         self.theta = self.thetaeq
-        self.dxthetam,self.dythetam  = self.gradient(self.thetaeq)
+        self.dxthetam, self.dythetam  = self.gradient(self.thetaeq)
         
         #perturbation fields (none by default)
         self.vortp = np.zeros(self.glats.shape)
@@ -136,7 +142,7 @@ class Sphere:
 
     def uv2vrtdiv(self, u, v, trunc=None):
         """
-        Vortivity and divergence from u and v wind
+        Vorticity and divergence from u and v wind
         Input: u and v (grid)
         Output: vorticity and divergence (grid)
         """
@@ -204,6 +210,15 @@ class Sphere:
     def laplace_spectral(self, f):
         """`laplace` with spectral in- and output fields."""
         return -f * self._laplacian_eigenvalues
+    
+
+    def Jacobian(self,A,B):
+        """ Returns the Jacobian of two fields (A,B)"""
+        #dadx*dbdy + ddx(a*dbdy) + ddy(b*dadx)
+        def KK(a,dadx,b,dbdy): return dadx*dbdy + self.gradient(a*dbdy)[0] + self.gradient(b*dadx)[1]
+        def K(a,b): return KK(a,self.gradient(a)[0], b,self.gradient(b)[1]) # avoids computing da/dx, db/dy twice
+        J = (K(A,B)-K(B,A)) / 3.
+        return J
     
     
     ####+++Several possibly useful background flow configurations+++####

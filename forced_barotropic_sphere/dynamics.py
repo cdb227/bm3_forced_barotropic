@@ -52,19 +52,14 @@ class ForcedVorticity:
         #linear advection term
         # -(U*dzetap/dx)
         Adv = -(self.sphere.U*dxvortp)
-        #in Linz et al. (2018) Adv term is prescribed as
-        #Adv = -12./a * np.gradient(self.sphere.vortp, self.sphere.rlon[1]-self.sphere.rlon[0])[0]
         
         #nonlinear advection term
         # -(u*dzetap/dx + v*dzetap/dy)
         J=0.
         if not self.vort_linear:
-            psip = self.sphere.laplace(self.sphere.vortp)
-            #use arakawa jacobian to deal to numerical instabilities from perturbations
-            ##J = - (u*dxvortp + v*dyvortp)
-            def KK(a,dadx,b,dbdy): return dadx*dbdy + self.sphere.gradient(a*dbdy)[0] + self.sphere.gradient(b*dadx)[1]
-            def K(a,b): return KK(a,self.sphere.gradient(a)[0],b,self.sphere.gradient(b)[1]) # avoids computing da/dx, db/dy twice
-            J = (K(self.sphere.vortp,psip)-K(psip,self.sphere.vortp)) / 3.
+            psip,_ = self.sphere.uv2sfvp(u,v)
+            #use arakawa jacobian to deal to numerical instabilities from perturbation
+            J = self.sphere.Jacobian(self.sphere.vortp,psip)
         
         #epsilon term
         #-v(beta-U_yy)
@@ -94,19 +89,16 @@ class ForcedVorticity:
         
         #linear advection term
         # -(U*dT'/dx + v'*dT/dy)
-        #Adv =  -(self.sphere.U * dxthetap + v*self.dythetam)
-        Adv = v*self.sphere.dythetam # as in Linz et al. (2018)?
+        Adv =  -(self.sphere.U * dxthetap + v*self.sphere.dythetam)
         
         #nonlinear advection term
         # - (u*dT'/dx + v'*dT'/dy)
         J=0.
         if not self.temp_linear:
-            psip = self.sphere.laplace(self.sphere.vortp)
+            psip,_ = self.sphere.uv2sfvp(u,v)
             #use arakawa jacobian to deal to numerical instabilities from perturbation
-            def KK(a,dadx,b,dbdy): return dadx*dbdy + self.sphere.gradient(a*dbdy)[0] + self.sphere.gradient(b*dadx)[1]
-            def K(a,b): return KK(a,self.sphere.gradient(a)[0],b,self.sphere.gradient(b)[1]) # avoids computing da/dx, db/dy twice
-            J = (K(self.sphere.thetap,psip)-K(psip,self.sphere.thetap)) / 3.
-        
+            J = self.sphere.Jacobian(self.sphere.thetap,psip)
+            
         #relaxation term
         # - (T - Teq)/ Tau
         Rel = - ((self.sphere.thetap + self.sphere.thetaeq) - self.sphere.thetaeq)/ self.Tau_relax
