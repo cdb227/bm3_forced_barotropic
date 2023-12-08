@@ -390,6 +390,73 @@ def ensspread_animation(ds, xy, levels, proj=ccrs.NorthPolarStereo(), fr=4, file
     anim.save(filename, fps=6, codec='h264', dpi=120)
     
     
+def animate_quiver(ds, times, xs, ts, filename = 'traj.gif', step=3600*2):
+    
+    dt=step
+    frames = np.arange(times[0], times[1], dt)
+    
+    if times[0] < ds.time.data[0] or times[1] > ds.time.data[-1]:
+        raise ValueError('You are trying to animate a time period '
+                        'there is no data for.')
+    skip = 3
+    x = ds.lon.data[::skip]
+    y = ds.lat.data[::skip]
+
+    Ntraj = xs.shape[2]
+        
+    plt.ioff()
+    f = plt.figure(3, figsize = (5, 3.5), dpi = 200)
+    f.clf()
+    ax = plt.subplot(1, 1, 1, projection = ccrs.NorthPolarStereo())
+    ax.set_extent([-179.9, 179.9, 20, 90], crs=ccrs.PlateCarree())
+
+    make_ax_circular(ax)
+
+
+    theta = xr.concat([ds.theta, ds.theta.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    
+    #use to get colorbar
+    cf=ax.contourf(theta.lon.data,theta.lat.data,theta.interp(time=0).data, transform = ccrs.PlateCarree(), 
+            levels =np.arange(245,307,7), cmap='coolwarm', extend='both')
+    plt.colorbar(cf, ax=ax, label='Temperature (K)')
+
+    def anim(t):
+        u = ds.u.interp(time=t).data[::skip, ::skip]
+        v = ds.v.interp(time=t).data[::skip, ::skip]
+        
+        plt.ioff()
+        ax.cla()
+        make_ax_circular(ax)
+        ax.set_extent([-179.9, 179.9, 20, 90], crs=ccrs.PlateCarree())
+        
+        cf=ax.contourf(theta.lon.data,theta.lat.data,theta.interp(time=t).data, transform = ccrs.PlateCarree(), 
+                    levels =np.arange(245,307,7), cmap='coolwarm', extend='both')
+
+        ax.quiver(x, y, u, v, transform = ccrs.PlateCarree(), 
+                    color = '0.2', units='inches', scale=100., width=0.01, pivot = 'mid')
+        
+        title = '{:.2f} days'.format(t*s2d)
+        
+        # Set the plot title
+        ax.set_title(title, fontsize=9)
+        
+        for i in range(Ntraj):
+            ind = np.where(ts[:, i] < t)[0]
+            if len(ind) > 0:
+                ax.plot( xs[ind      , 0, i] ,  xs[ind      , 1, i],  'r', lw=2., transform = ccrs.PlateCarree(),)
+                ax.plot([xs[ind[0]   , 0, i]], [xs[ind[0]   , 1, i]], 'kx', transform = ccrs.PlateCarree(),)
+                ax.plot( xs[ind[25::50], 0, i] ,  xs[ind[25::50], 1, i],  'k+', transform = ccrs.PlateCarree(),)
+                
+                if len(ind) < ts.shape[0]:
+                    ax.plot([xs[ind[-1]  , 0, i]], [xs[ind[-1]  , 1, i]], 'ro', transform = ccrs.PlateCarree(),)
+
+        plt.ion()
+        plt.draw()
+
+    anim = manim.FuncAnimation(f, anim, frames, repeat=False)
+    
+    anim.save(filename, fps=12, codec='h264', dpi=240)
+    plt.ion()
     
         
         
