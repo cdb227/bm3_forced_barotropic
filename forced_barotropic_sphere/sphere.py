@@ -21,7 +21,7 @@ class Sphere:
     contains routines to convert from lat/lon to sperical harmonics
     """
     def __init__(self, nlat, nlon, U = 0., theta0=300., deltheta= 45.,
-                 rsphere=a, legfunc='stored', trunc=None):
+                 rsphere=a, legfunc='stored', trunc=None, seaice=False):
         """
         initializes sphere for barotropic model.
         
@@ -88,9 +88,10 @@ class Sphere:
         sc = 50. #ice edge location
         sw = 1 #transition width (degrees lat)
         sh = 10# temperature difference (K)
-        seaice = sh*np.tanh((self.rlats-np.radians(sc))*(1./np.radians(sw)))
-        seaice[seaice<0]=0.
-        #self.thetaeq = self.thetaeq-seaice
+        si = sh*np.tanh((self.rlats-np.radians(sc))*(1./np.radians(sw)))
+        si[si<0]=0.
+        if seaice:
+            self.thetaeq = self.thetaeq-si
         
         #initial temp of sphere is the equil. temp.
         self.theta = self.thetaeq
