@@ -33,9 +33,14 @@ def calculate_trajectories(ds, x0, t0=0., rvs=False):
 
     # To calculate trajectories, we use time-evolving winds
     dts = np.arange(0, T, tstep)
+    if len(dts)>Nt:
+        dts=dts[:-1]
+    #print(T, dts, dt, Nt)
+    #print (ts.shape, dts.shape)
     if rvs:
         dts*=-1
         dt*=-1
+        tstep*=-1
 
     x0 = np.array(x0)
     t0 = np.array(t0)
