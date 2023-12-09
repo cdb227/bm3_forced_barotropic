@@ -37,10 +37,10 @@ With $\theta_0 = 300$ K and $\Delta\theta=45$ K.
 #### 2.2 Example Run
 
 <p align="center">
-  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/evo.gif" alt="animated" />
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/overview.gif" alt="animated" />
 </p>
 <p align="center">
-  <em>An example 3-week integration of the model. Winds stir the temperature field. The complex forcing term ensures that individual wave numbers are phase shifted relative to one another, removing zonally-dependent mixing over time.</em>
+  <em>An example 4-week integration of the model. Winds stir the temperature field. The left panel depicts winds relative to the zonal mean and the right panel are the total winds. The complex forcing term ensures that individual wave numbers are phase shifted relative to one another, removing zonally-dependent mixing over time.</em>
 </p>
 
 
