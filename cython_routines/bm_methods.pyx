@@ -89,10 +89,12 @@ def recursive_rootfinding(a, b, tol, fargs, f= first_deriv_pdf):
         
     #Ms = roots[::2] #maxs
     #ms = roots[1::2]#mins
-    return roots[::2],roots[1::2]
+    return roots
 
-def root_finding(ensemble, bw):
-    return brute_force(numpy.min(ensemble),numpy.max(ensemble), ensemble, bw)
+
+def root_finding(ensemble,bw, tol=0.1):
+    roots = recursive_rootfinding(numpy.min(ensemble), numpy.max(ensemble), tol=tol, fargs=(ensemble,bw))
+    return roots
 ######
 
 #####DISTANCE ALGORITHM FOR CLUSTERING
