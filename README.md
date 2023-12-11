@@ -56,7 +56,7 @@ For this model, ensemble members share a common forcing $F$ at the time of initi
 
 
 <p align="center">
-  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/espread.png"  />
+ <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/espread.gif" alt="animated" />
 </p>
 <p align="center">
   <em>
