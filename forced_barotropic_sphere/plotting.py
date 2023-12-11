@@ -502,7 +502,7 @@ def animate_thetaens(ds, times, xs, ts=None, tlevs = np.arange(0,12,2),
     cmap = plt.cm.coolwarm
     
     ax.contour(background.lon.data, background.lat.data, background.data,
-           cmap=cmap, levels=btlev, transform=ccrs.PlateCarree(),zorder=10)
+           cmap=cmap, levels=btlev, transform=ccrs.PlateCarree(),linestyles='--', alpha=0.75,zorder=10)
         
     
     def anim(t):
@@ -516,7 +516,7 @@ def animate_thetaens(ds, times, xs, ts=None, tlevs = np.arange(0,12,2),
                     cmap=cm, levels=tlevs,norm=normcm)
         
         ax.contour(background.lon.data, background.lat.data, background.data,
-           cmap=cmap, levels=btlev, transform=ccrs.PlateCarree(),zorder=10)
+           cmap=cmap, levels=btlev, transform=ccrs.PlateCarree(),zorder=10,linestyles='--', alpha=0.75)
         
         title = '{:.2f} days'.format(t*s2d)
         
@@ -531,12 +531,13 @@ def animate_thetaens(ds, times, xs, ts=None, tlevs = np.arange(0,12,2),
                 #ax.plot( xs[50::100, 0, i] ,  xs[50::100, 1, i],   c=cmap(norm(cols)), lw=0., marker='o', transform = ccrs.PlateCarree(),)
             
                 col = ds.theta.sel(ens_mem=i).interp(time=t, lon=xs[ind[-1],0,i], lat=xs[ind[-1],1,i]).item(0)
+                print(col)
 
                 ax.plot( sanitize_lonlist(xs[ind      , 0, i]) ,  xs[ind      , 1, i],
                         c=cmap(norm(col)), lw=2., transform = ccrs.PlateCarree(),)
                 ax.plot( xs[ind      , 0, i] ,  xs[ind      , 1, i],  c=cmap(norm(col)), lw=2.,
                         transform = ccrs.PlateCarree(),zorder=20)
-                ax.plot([xs[ind[0]   , 0, i]], [xs[ind[0]   , 1, i]], 'kx', transform = ccrs.PlateCarree(),)
+                ax.plot([xs[ind[0]   , 0, i]], [xs[ind[0]   , 1, i]], 'kx', zorder=20,transform = ccrs.PlateCarree(),)
                 #ax.plot( xs[ind[25::50], 0, i] ,  xs[ind[25::50], 1, i],  'k+', transform = ccrs.PlateCarree(),)
 
                 if len(ind) < ts.shape[0]:

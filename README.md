@@ -56,13 +56,23 @@ For this model, ensemble members share a common forcing $F$ at the time of initi
 
 
 <p align="center">
+  <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/espread.png"  />
+</p>
+<p align="center">
+  <em>
+  A 10-member ensemble run, integrated from t=(0,T), where no IC perturbations are applied, but ensemble forcings decorrelate over time. The point in the domain with the largest variance at time = T is chosen and ensemble members are tracked to their origin location (as seen at t=0). Lines change color based on the temperature value of the ensemble member at time = t. Dashed contours depict the equilibrium temperature structure.
+  </em>
+</p>
+
+<!-- 
+<p align="center">
   <img src="https://github.com/cdb227/bm3_forced_barotropic/blob/main/images/ensemble_sim.png"  />
 </p>
 <p align="center">
   <em>
   A 200-member ensemble run, where no IC perturbations are applied, but ensemble forcings decorrelate over time. A randomly selected point is used to show how ensemble spread develops over time (second row). The spread over all longitudes at that latitude is also shown (third row). Dashed lines indicate when the ensemble has formally approached the climatological spread. 
   </em>
-</p>
+</p> -->
 
 
 
