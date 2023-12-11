@@ -439,7 +439,7 @@ def overview_animation(ds, times, xs, ts=None, filename = './images/overview.gif
             
 
         
-        if ts != None:
+        if ts.all() != None:
             Ntraj = xs.shape[2]
             for i in range(Ntraj):
                 ind = np.where(ts[:, i] < t)[0]
