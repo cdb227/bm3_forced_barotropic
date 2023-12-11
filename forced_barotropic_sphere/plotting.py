@@ -14,6 +14,8 @@ import matplotlib.animation as manim
 import matplotlib.ticker as mticker
 import matplotlib.path as mpath
 
+import seaborn as sns
+
 s2d = 1/86400.
 
 #+++Simple plot modifications+++#
@@ -99,24 +101,68 @@ def plot_overview(sln, levels=[None,None], var=['zetap','theta'], proj=ccrs.Nort
 
 
 #+++Plotting routines for ensembles+++#
-def plot_theta_ensspread(sln, levels=None, proj = ccrs.NorthPolarStereo(), ax=None, colorbar=True):
+def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2), trjs=None,ts=None, proj = ccrs.NorthPolarStereo()):
     """
     Plot ensemble spread (defined as 1 std of ensemble) of theta
     """
-    if ax==None:
-        f = plt.figure(figsize = (5, 5))
-        ax = plt.axes(projection=proj)
-    ax.set_extent([-179.9, 179.9, 30, 90], crs=ccrs.PlateCarree())
-    wrap_data, wrap_lon = add_cyc_point(sln.theta.std('ens_mem'))
-    ax.set_title(r"$\theta'$")
-        
-    cf= ax.contourf(wrap_lon, sln.y.values, wrap_data, extend='max', levels=levels,transform=ccrs.PlateCarree(), cmap = 'Blues')
-    if colorbar:
-        plt.colorbar(cf,ax=ax,orientation='horizontal', label = r'Ens. Std. (K)')
-    ax=make_ax_circular(ax)
-    ax=add_gridlines(ax)
-    ax.text(0.5, -0.1, 't = {:.2f} days'.format(sln.coords['time'].values/86400), horizontalalignment='center',
+    f = plt.figure(figsize = (5, 5))
+    ax = plt.axes(projection=proj)
+    ax.set_extent([-179.9, 179.9, 20, 90], crs=ccrs.PlateCarree())
+    make_ax_circular(ax)
+    
+    ds=xr.concat([ds, ds.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    background = ds.theta.sel(ens_mem=0).sel(time=0)
+    theta = ds.theta.std('ens_mem').sel(time=t)
+    
+    #use to get colorbar
+    cm = sns.color_palette("light:seagreen", as_cmap=True)
+    normcm = mpl.colors.BoundaryNorm(levels, cm.N)
+
+    cf=ax.contourf(theta.lon.data, theta.lat.data, theta.data, transform = ccrs.PlateCarree(), 
+            levels=levels,cmap=cm, norm=normcm)
+    
+    plt.colorbar(cf, ax=ax, label='Std(Temp) (K)',shrink=0.8)
+    
+    btlev= np.arange(260,310,10)
+    norm = plt.Normalize(btlev[0], btlev[-1])
+    cmap = plt.cm.coolwarm
+    
+    ax.contour(background.lon.data, background.lat.data, background.data,
+          cmap=cmap, levels=btlev, transform=ccrs.PlateCarree(),zorder=10, alpha=0.75, linestyles='--')
+    
+    ax.text(0.5, -0.1, 't = {:.2f} days'.format(theta.time.item(0)/86400), horizontalalignment='center',
          verticalalignment='top', transform=ax.transAxes)
+    
+    if trjs is not None:
+        ntr = trjs.shape[2]
+        for i in range(ntr):
+            #start point
+            
+            txs = trjs[:,0,i]
+            tys = trjs[:,1,i]
+            
+            scol = ds.theta.sel(ens_mem=i).interp(time=0, lon=txs[-1],lat=tys[-1]).item(0)
+            ax.scatter(trjs[-1, 0, i], trjs[-1, 1, i], c= scol, norm=norm,cmap=cmap, marker='o',
+                      transform=ccrs.PlateCarree(), zorder=10)
+            
+            
+            #locations for ploting
+            xsc = xr.DataArray(txs.reshape(-1), dims=['location'])
+            ysc = xr.DataArray(tys.reshape(-1), dims=['location'])
+            tsc = xr.DataArray(ts[:,i].reshape(-1), dims=['location'])
+            cols = ds.theta.sel(ens_mem=i).interp(time=tsc,lon=xsc,lat=ysc).values
+
+            points = np.array([sanitize_lonlist(txs), tys]).T.reshape(-1, 1, 2)
+            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+            
+            lc = LineCollection(segments, cmap=cmap,norm=norm, transform=ccrs.PlateCarree())
+            lc.set_array(cols)
+            lc.set_linewidth(2)
+            line = ax.add_collection(lc)
+            
+            ax.plot(trjs[0:1, 0, i], trjs[0:1, 1, i], 'kx', ls='', mew=2., transform=ccrs.PlateCarree(), zorder=20) #final point
+            #ax.plot(trjs[50::50, 0, i], trjs[50::50, 1, i], 'k+', ls='', mew=1.)
+            
     return ax
 
 def plot_zeta_ensspread(sln, levels=None, proj = ccrs.NorthPolarStereo(), ax=None, colorbar=True):
@@ -415,7 +461,11 @@ def overview_animation(ds, times, xs, ts=None, filename = './images/overview.gif
     
 
     
-def animate_quiver(ds, times, xs, ts=None, filename = 'traj.gif', step=3600*2):
+def animate_thetaens(ds, times, xs, ts=None, tlevs = np.arange(0,12,2),
+                     filename = 'espread.gif', step=3600*2, mod=False):
+    """
+    animate spread of theta, include trajectories as well if desired
+    """
     
     dt=step
     frames = np.arange(times[0], times[1], dt)
@@ -424,8 +474,6 @@ def animate_quiver(ds, times, xs, ts=None, filename = 'traj.gif', step=3600*2):
         raise ValueError('You are trying to animate a time period '
                         'there is no data for.')
     skip = 3
-    x = ds.lon.data[::skip]
-    y = ds.lat.data[::skip]
         
     plt.ioff()
     f = plt.figure(3, figsize = (5, 3.5), dpi = 200)
@@ -434,54 +482,94 @@ def animate_quiver(ds, times, xs, ts=None, filename = 'traj.gif', step=3600*2):
     ax.set_extent([-179.9, 179.9, 20, 90], crs=ccrs.PlateCarree())
 
     make_ax_circular(ax)
-
-    theta = xr.concat([ds.theta, ds.theta.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    
+    ds=xr.concat([ds, ds.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    background = ds.theta.sel(ens_mem=0).sel(time=0)
+    theta = ds.theta.std('ens_mem')
     
     #use to get colorbar
-    cf=ax.contourf(theta.lon.data,theta.lat.data,theta.interp(time=0).data, transform = ccrs.PlateCarree(), 
-            levels =np.arange(245,307,7), cmap='coolwarm', extend='both')
-    plt.colorbar(cf, ax=ax, label='Temperature (K)')
+    cm = sns.color_palette("light:seagreen", as_cmap=True)
+    normcm = mpl.colors.BoundaryNorm(tlevs, cm.N)
 
+    cf=ax.contourf(theta.lon.data, theta.lat.data, theta.interp(time=times[1]).data, transform = ccrs.PlateCarree(), 
+            levels=tlevs,cmap=cm, norm=normcm)
+    
+    plt.colorbar(cf, ax=ax, label='Std(Temp) (K)',shrink=0.8)
+    Ntraj = xs.shape[2]
+    
+    btlev= np.arange(250,300,5)
+    norm = plt.Normalize(btlev[0], btlev[-1])
+    cmap = plt.cm.coolwarm
+    
+    ax.contour(background.lon.data, background.lat.data, background.data,
+           cmap=cmap, levels=btlev, transform=ccrs.PlateCarree(),zorder=10)
+        
+    
     def anim(t):
-        u = ds.u.interp(time=t).data[::skip, ::skip]
-        v = ds.v.interp(time=t).data[::skip, ::skip]
         
         plt.ioff()
         ax.cla()
         make_ax_circular(ax)
         ax.set_extent([-179.9, 179.9, 20, 90], crs=ccrs.PlateCarree())
         
-        cf=ax.contourf(theta.lon.data,theta.lat.data,theta.interp(time=t).data, transform = ccrs.PlateCarree(), 
-                    levels =np.arange(245,307,7), cmap='coolwarm', extend='both')
-
-        ax.quiver(x, y, u, v, transform = ccrs.PlateCarree(), 
-                    color = '0.2', units='inches', scale=100., width=0.01, pivot = 'mid')
+        cf=ax.contourf(theta.lon,theta.lat, theta.interp(time=t).data, transform = ccrs.PlateCarree(), 
+                    cmap=cm, levels=tlevs,norm=normcm)
+        
+        ax.contour(background.lon.data, background.lat.data, background.data,
+           cmap=cmap, levels=btlev, transform=ccrs.PlateCarree(),zorder=10)
         
         title = '{:.2f} days'.format(t*s2d)
         
         # Set the plot title
         ax.set_title(title, fontsize=9)
-        if ts != None:
-            Ntraj = xs.shape[2]
-            for i in range(Ntraj):
-                ind = np.where(ts[:, i] < t)[0]
-                if len(ind) > 0:
-                    ax.plot( xs[ind      , 0, i] ,  xs[ind      , 1, i],  'r', lw=2., transform = ccrs.PlateCarree(),)
-                    ax.plot([xs[ind[0]   , 0, i]], [xs[ind[0]   , 1, i]], 'kx', transform = ccrs.PlateCarree(),)
-                    ax.plot( xs[ind[25::50], 0, i] ,  xs[ind[25::50], 1, i],  'k+', transform = ccrs.PlateCarree(),)
+        for i in range(Ntraj):
+            ind = np.where(ts[:, i] < t)[0]
 
-                    if len(ind) < ts.shape[0]:
-                        ax.plot([xs[ind[-1]  , 0, i]], [xs[ind[-1]  , 1, i]], 'ro', transform = ccrs.PlateCarree(),)
+            if len(ind) > 0:
+                #cols = ds.theta.sel(ens_mem=i).interp(time=ts[50::100,i], lon=xs[50::100, 0, i] ,  lat=xs[50::100, 1, i]).values
+            
+                #ax.plot( xs[50::100, 0, i] ,  xs[50::100, 1, i],   c=cmap(norm(cols)), lw=0., marker='o', transform = ccrs.PlateCarree(),)
+            
+                col = ds.theta.sel(ens_mem=i).interp(time=t, lon=xs[ind[-1],0,i], lat=xs[ind[-1],1,i]).item(0)
+
+                ax.plot( sanitize_lonlist(xs[ind      , 0, i]) ,  xs[ind      , 1, i],
+                        c=cmap(norm(col)), lw=2., transform = ccrs.PlateCarree(),)
+                ax.plot( xs[ind      , 0, i] ,  xs[ind      , 1, i],  c=cmap(norm(col)), lw=2.,
+                        transform = ccrs.PlateCarree(),zorder=20)
+                ax.plot([xs[ind[0]   , 0, i]], [xs[ind[0]   , 1, i]], 'kx', transform = ccrs.PlateCarree(),)
+                #ax.plot( xs[ind[25::50], 0, i] ,  xs[ind[25::50], 1, i],  'k+', transform = ccrs.PlateCarree(),)
+
+                if len(ind) < ts.shape[0]:
+                    #initial point
+                    col = ds.theta.sel(ens_mem=i).interp(time=0, lon=xs[-1,0,i],lat=xs[-1,1,i]).item(0)
+
+                    ax.scatter([xs[ind[-1]  , 0, i]], [xs[ind[-1]  , 1, i]], c= col, norm=norm, cmap=cmap,
+                     transform=ccrs.PlateCarree(), zorder=30)
 
         plt.ion()
         plt.draw()
 
     anim = manim.FuncAnimation(f, anim, frames, repeat=False)
     
-    anim.save(filename, fps=12, codec='h264', dpi=240)
+    anim.save(filename, fps=12, codec='h264', dpi=200)
     plt.ion()
     
         
+def sanitize_lonlist(lons):
+    """
+    This fixes an issue when moving across meridians with line plots 
+    """
+    lons = np.array(lons)
+    diffs = np.diff(lons)
+    wraploc = np.where(abs(diffs)>30)[0]+1
+    #for ii in wraploc:
+    if len(wraploc)>0:
+        if lons[0]>0: #goes from 180 -> -180
+            lons[wraploc[0]:]+=360
+        else: #goes form -180 -> 180
+            lons[wraploc[0]:]-=360
         
+    return lons    
+    
 
  
