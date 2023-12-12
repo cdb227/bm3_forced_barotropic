@@ -21,7 +21,7 @@ class Sphere:
     contains routines to convert from lat/lon to sperical harmonics
     """
     def __init__(self, nlat, nlon, U = 0., theta0=300., deltheta= 45.,
-                 rsphere=a, legfunc='stored', trunc=None, seaice=False):
+                 rsphere=a, legfunc='stored', trunc=None, seaice=False, base_state='solid'):
         """
         initializes sphere for barotropic model.
         
@@ -67,9 +67,14 @@ class Sphere:
         self.beta = 2.*self.omega*np.cos(self.rlats)/rsphere
         
         #define zonal mean background wind profiles
-        self.U = 10.*np.cos(self.rlats)
-        self.V = np.zeros(self.U.shape)
-        
+        if base_state == 'solid':
+            self.solid_body(U = 10)
+        elif base_state == 'held85':
+            self.held_1985()
+        elif base_state == 'gaussian':
+            self.gaussian_jet()       
+        else:
+            raise ValueError('base_state not recognized.')
         
         #nondivergent flow
         self.vortp_div = np.zeros(self.rlats.shape, dtype = 'd')
@@ -199,18 +204,19 @@ class Sphere:
         dxvarg, dyvarg = self.s.getgrad(varspec)
         return(dxvarg, dyvarg)
     
-    def laplace(self, f):
+    def laplace(self, f, n = 1):
         """Laplacian of an input field.
         Parameters:
             f (array): 2D input field.
+            n (integer): power of laplacian to compute; n = 1 corresponds to \nabla^2, n=2 to \nabla^4, etc.
         Returns:
             Gridded Laplacian of **f**.
         """
-        return self.to_grid(self.laplace_spectral(self.to_spectral(f)))
+        return self.to_grid(self.laplace_spectral(self.to_spectral(f), n))
     
-    def laplace_spectral(self, f):
+    def laplace_spectral(self, f, n = 1):
         """`laplace` with spectral in- and output fields."""
-        return -f * self._laplacian_eigenvalues
+        return -(f**n) * self._laplacian_eigenvalues
     
 
     def Jacobian(self,A,B):
@@ -223,6 +229,14 @@ class Sphere:
     
     
     ####+++Several possibly useful background flow configurations+++####
+    def solid_body(self, U=10.):
+        """Zonal wind profile in solid body rotation"""
+        u = 10.*np.cos(self.rlats)
+        v = np.zeros_like(u)
+
+        self.U = u
+        self.V = v
+
     def held_1985(self, A=25., B=30., C=300.):
         """Zonal wind profile similar to that of the upper troposphere.
         Parameters:
@@ -238,12 +252,10 @@ class Sphere:
         u = (A * cosphi - B * cosphi**3 + C * cosphi**6 * sinphi**2)/2.0
         #no meridional wind
         v = np.zeros_like(u)
-        vort,_ = self.uv2vrtdiv(u,v)
-
+        
         self.U = u
-        self.V= v
-        self.vortm = vort
-
+        self.V = v
+        
     def gaussian_jet(self, amplitude=20., center_lat=45., stdev_lat=5.):
         """A bell-shaped, zonally-symmetric zonal jet.
         Parameters:
@@ -261,11 +273,8 @@ class Sphere:
         u = u - 0.5 * (u_south + u_north) + (u_south - u_north) * self.glats / 180.
         # No meridional wind
         v = np.zeros_like(u)
-        vort,_ = self.uv2vrtdiv(u,v)
-
-        self.U = u
-        self.V= v
-        self.vortm = vort
         
+        self.U = u
+        self.V = v
 
  

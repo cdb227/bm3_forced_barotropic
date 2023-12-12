@@ -111,6 +111,13 @@ class Forcing:
         
         self.forcing_tseries=forcing_tseries
      
+    def generate_zeroforcing_tseries(self):
+        """
+        Zero forcing case
+        """
+        forcing_tseries = np.zeros((self.Nt+2,len(self.sphere.glat),len(self.sphere.glon)))
+        
+        self.forcing_tseries=forcing_tseries
         
 
  

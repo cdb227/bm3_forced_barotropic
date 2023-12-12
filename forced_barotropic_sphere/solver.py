@@ -8,7 +8,7 @@ class Solver:
     """
     Solver class which will integrate the vorticity equation
     """
-    def __init__(self,  sphere, forcing, ofreq):
+    def __init__(self,  sphere, forcing, ofreq, fvort_args=None):
         """
         initializes a solver for barotropic model.
         
@@ -36,7 +36,7 @@ class Solver:
         self.vortpo = np.zeros((self.No, self.sphere.nlat,self.sphere.nlon), 'd')
         self.thetapo= np.zeros((self.No, self.sphere.nlat,self.sphere.nlon), 'd')        
         
-        self.FVort = ForcedVorticity(self.sphere, forcing.forcing_tseries)
+        self.FVort = ForcedVorticity(self.sphere, forcing.forcing_tseries, **fvort_args)
             
     def integrate_dynamics(self, temp_linear=True, vort_linear=True):
         """
@@ -67,7 +67,7 @@ class Solver:
         self.sphere.vortp = self.sphere.vortp + self.dt * self.dvortp[:,:, 1]
     
 
-        eps = 1e-5 # A bit of damping
+        eps = 0.#1e-5 # A bit of damping
 
         i2 = 0
         i1 = 1

@@ -16,7 +16,7 @@ class ForcedVorticity:
     """
     Class which contains the right hand side of vorticity equation from FBS
     """
-    def __init__(self, sphere, forcing_tseries):
+    def __init__(self, sphere, forcing_tseries, **kwargs):
         """
         terms used in forced baroptropic vorticity
         
@@ -26,11 +26,19 @@ class ForcedVorticity:
         """
 
         self.sphere = sphere
+
+        tau = kwargs.get('tau', 8)  # Thermal relaxation timescale (days)
+        Kappa = kwargs.get('Kappa', 0.1)  # Thermal relaxation timescale (days)
+        rs = kwargs.get('rs', 1/7.)  # Thermal relaxation timescale (days)
         
-        self.Tau_relax = 8*d2s #8 days thermal relaxation timescale
-        self.Kappa = 0.1*d2s # 0.1 day thermal damping
-        self.rs = 1/7. * 1/d2s #frictional dissipation 7 days,
-        
+        self.Tau_relax = tau*d2s #8 days thermal relaxation timescale
+        self.Kappa = Kappa*d2s # 0.1 day thermal damping
+        self.rs = rs * 1/d2s #frictional dissipation 7 days,
+
+        # Hyperdiffusion coefficient and order
+        self.nu = kwargs.get('nu', 0.)
+        self.diffusion_order = kwargs.get('diffusion_order', 2)
+                
         self.tstep = 0 #keeps track of which index from forcing timseries to be retrieved
         self.forcing_tseries=forcing_tseries
         
@@ -48,19 +56,16 @@ class ForcedVorticity:
 
         # +++ Dynamics +++ #
         dxvortp,dyvortp= self.sphere.gradient(self.sphere.vortp) #find dxzetap, dyzetap
-        
-        #linear advection term
-        # -(U*dzetap/dx)
-        Adv = -(self.sphere.U*dxvortp)
-        
-        #nonlinear advection term
-        # -(u*dzetap/dx + v*dzetap/dy)
-        J=0.
-        if not self.vort_linear:
-            psip,_ = self.sphere.uv2sfvp(u,v)
-            #use arakawa jacobian to deal to numerical instabilities from perturbation
-            J = self.sphere.Jacobian(self.sphere.vortp,psip)
-        
+
+        if self.vort_linear:
+            #linear advection term
+            # -(U*dzetap/dx)
+            Adv = -(self.sphere.U*dxvortp)
+        else:
+            #nonlinear advection term
+            # -((U + u)*dzetap/dx + v*dzetap/dy)
+            Adv = -((self.sphere.U + u)*dxvortp + v*dyvortp)
+
         #epsilon term
         #-v(beta-U_yy)
         B = -v*(self.sphere.beta-self.sphere.dyvortm)
@@ -68,12 +73,15 @@ class ForcedVorticity:
         #frictional dissipation term
         #-r_s*zetap
         Diss = -self.rs*self.sphere.vortp
+
+        # Hyper diffusion term
+        Diff = -self.nu*self.sphere.laplace(self.sphere.vortp, self.diffusion_order)
         
         #forcing term
         F = self.forcing_tseries[self.tstep,:]
         self.tstep+=1
         
-        return Adv+B+Diss+F+J
+        return Adv+B+Diss+Diff+F
     
     
     def theta_tendency(self):
@@ -84,8 +92,7 @@ class ForcedVorticity:
         
         u,v = self.sphere.vrtdiv2uv(self.sphere.vortp, self.sphere.vortp_div)
         
-        dxthetap, dythetap = self.sphere.gradient(self.sphere.thetap)
-        
+        dxthetap, dythetap = self.sphere.gradient(self.sphere.thetap)       
         
         #linear advection term
         # -(U*dT'/dx + v'*dT/dy)
