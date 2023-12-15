@@ -17,6 +17,7 @@ import matplotlib.path as mpath
 import seaborn as sns
 
 s2d = 1/86400.
+d2r = np.pi / 180.
 
 #+++Simple plot modifications+++#
 def add_cyc_point(var):
@@ -99,6 +100,35 @@ def plot_overview(sln, levels=[None,None], var=['zetap','theta'], proj=ccrs.Nort
     
     return axs
 
+def plot_energy(sln, normalize_to_ic = True):
+    """
+    Plot globally integrated perturbation energy and enstrophy
+    """                 
+    fig, axs = plt.subplots(1,2, figsize=(7,5), sharex=True)
+
+    cosphi = np.cos(d2r * sln.y)
+    dys = sln.coords['time'] * s2d
+
+    up = sln.u - sln.u.mean('x')
+    KE = ((up**2 + sln.v**2) * cosphi).mean(['x', 'y'])
+    KE.coords['time'] = dys
+
+    EN = ((sln.vortp**2) * cosphi).mean(['x', 'y'])
+    EN.coords['time'] = dys
+    
+    if normalize_to_ic:
+        KE = KE / KE[0]
+        EN = EN / EN[0]
+
+    KE.plot(ax=axs[0])
+    axs[0].set_title('Perturbation Energy')  
+    axs[0].set_xlabel('time (days)')
+
+    EN.plot(ax=axs[1])
+    axs[1].set_title('Perturbation Enstrophy')
+    axs[1].set_xlabel('time (days)')
+        
+    return axs
 
 #+++Plotting routines for ensembles+++#
 def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2), trjs=None,ts=None, proj = ccrs.NorthPolarStereo()):
@@ -439,7 +469,7 @@ def overview_animation(ds, times, xs, ts=None, filename = './images/overview.gif
             
 
         
-        if ts.all() != None:
+        if ts != None:
             Ntraj = xs.shape[2]
             for i in range(Ntraj):
                 ind = np.where(ts[:, i] < t)[0]
