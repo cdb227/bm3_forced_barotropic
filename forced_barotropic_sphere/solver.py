@@ -20,13 +20,13 @@ class Solver:
         
         self.sphere = sphere
         
-        self.dt = forcing.dt
-        self.T = forcing.T
-        self.Nt = int(self.T / self.dt)        
-        self.ts = np.arange(self.Nt) * self.dt
+        self.dt = forcing.dt                   #integration step
+        self.T = forcing.T                     #integration time
+        self.Nt = int(self.T / self.dt)        #number of steps   
+        self.ts = np.arange(self.Nt) * self.dt #integration times
         
-        self.No = int(self.Nt/ofreq)+1
-        self.ofreq = ofreq
+        self.No = int(self.Nt/ofreq)+1         #number of outputs
+        self.ofreq = ofreq                     #output frequency
          
         #temporary storage for integration
         self.dvortp = np.zeros((self.sphere.nlat,self.sphere.nlon, 3), 'd')  
