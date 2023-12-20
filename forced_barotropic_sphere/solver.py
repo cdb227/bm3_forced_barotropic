@@ -29,8 +29,9 @@ class Solver:
         self.ofreq = ofreq                     #output frequency
          
         #temporary storage for integration
-        self.dvortp = np.zeros((self.sphere.nlat,self.sphere.nlon, 3), 'd')  
-        self.dthetap = np.zeros((self.sphere.nlat,self.sphere.nlon, 3), 'd')
+        self.dvortp = np.zeros((self.sphere.nlat,self.sphere.nlon, 1), 'd')  
+        self.vortp = np.zeros((self.sphere.nlat,self.sphere.nlon, 2), 'd')  
+        
         
         #output to be saved    
         self.vortpo = np.zeros((self.No, self.sphere.nlat,self.sphere.nlon), 'd')
@@ -46,51 +47,40 @@ class Solver:
         self.FVort.temp_linear = temp_linear
         self.FVort.vort_linear = vort_linear
         
-        j0 = 0
         k0 = 0 
         k = 0
+        
         self.vortpo[k0, :, :] = self.sphere.vortp
-        self.thetapo[k0, :, :] = self.sphere.thetap
+        self.vortp[:, :,0] = self.sphere.vortp
 
-        # First two forward steps
-        self.dthetap[:,:, 0] = self.FVort.theta_tendency()
-        self.sphere.thetap = self.sphere.thetap + self.dt * self.dthetap[:,:, 0]
+        # First forward step
+        self.dvortp[:,:, 0] = self.FVort.vort_tendency(self.vortp[:,:,0])
+        self.vortp[:,:,1] = self.vortp[:, :,0] + self.dt * self.dvortp[:,:, 0]
         
-        self.dvortp[:,:, 0] = self.FVort.vort_tendency()
-        self.sphere.vortp = self.sphere.vortp + self.dt * self.dvortp[:,:, 0]
-        
-        
-        self.dthetap[:,:, 1] = self.FVort.theta_tendency()
-        self.sphere.thetap = self.sphere.thetap + self.dt * self.dthetap[:,:, 1]
-        
-        self.dvortp[:,:, 1] = self.FVort.vort_tendency()
-        self.sphere.vortp = self.sphere.vortp + self.dt * self.dvortp[:,:, 1]
-    
+        # Robert-Asselin filter strength
+        r = 0.02
 
-        eps = 0.#1e-5 # A bit of damping
+        i0 = 0
+        j0 = 1 #points to current/next 
+        j1 = 0 #points to previous interation
 
-        i2 = 0
-        i1 = 1
-        i0 = 2
 
         #using the same numerical scheme as Peter, RK4 or something?
         for j, t in enumerate(self.ts):
 
-            self.dthetap[:,:, i0] = self.FVort.theta_tendency()
-            self.sphere.thetap  = (1 - eps) * self.sphere.thetap + self.dt / 12. * \
-                (23. * self.dthetap[:,:, i0] - 16. * self.dthetap[:, :,i1] + 5. * self.dthetap[:,:, i2])
+            self.dvortp[:,:, i0] = self.FVort.vort_tendency(self.vortp[:,:,j1])
+            # Leap-frog time step
+            self.vortp[:, :,j0] += 2 * self.dt * self.dvortp[:,:, i0]
 
-            self.dvortp[:,:, i0] = self.FVort.vort_tendency()
-            self.sphere.vortp = (1 - eps) * self.sphere.vortp + self.dt / 12. * \
-                (23. * self.dvortp[:,:, i0] - 16. * self.dvortp[:, :,i1] + 5. * self.dvortp[:,:, i2])
+            # Apply leap-frog Robert-Asselin filter
+            self.vortp[:, :,j1] += 2 * r * (self.dt * self.dvortp[:,:, i0] + self.vortp[:, :,j0] - self.vortp[:, :,j1])
 
-            i0, i1, i2 = i2, i0, i1
-
+            j0, j1 = j1, j0
             k += 1
+        
             if k >= self.ofreq:
                 k0 += 1
-                self.vortpo[k0, :, :] = self.sphere.vortp
-                self.thetapo[k0, :, :] = self.sphere.thetap
+                self.vortpo[k0, :, :] = self.vortp[:, :,j0]
                 k = 0
                 
         crds = [np.linspace(0, self.T, self.No), self.sphere.glat.data[:], self.sphere.glon.data[:]]

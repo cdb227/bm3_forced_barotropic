@@ -46,16 +46,16 @@ class ForcedVorticity:
         self.temp_linear = True #linear by default
         self.vort_linear = True
     
-    def vort_tendency(self):
+    def vort_tendency(self,vortp):
         """
         Calculate dvortp/dt of forced barotropic vorticity equation
         Includes an advective term, epsilon term, frictional dissipation and a forcing
         """
 
-        u,v = self.sphere.vrtdiv2uv(self.sphere.vortp, self.sphere.vortp_div) #pull out u and v from vorticity field at current timestep
+        u,v = self.sphere.vrtdiv2uv(vortp, self.sphere.vortp_div) #pull out u and v from vorticity field at current timestep
 
         # +++ Dynamics +++ #
-        dxvortp,dyvortp= self.sphere.gradient(self.sphere.vortp) #find dxzetap, dyzetap
+        dxvortp,dyvortp= self.sphere.gradient(vortp) #find dxzetap, dyzetap
 
         if self.vort_linear:
             #linear advection term
@@ -72,10 +72,10 @@ class ForcedVorticity:
         
         #frictional dissipation term
         #-r_s*zetap
-        Diss = -self.rs*self.sphere.vortp
+        Diss = -self.rs*vortp
 
         # Hyper diffusion term
-        Diff = -self.nu*self.sphere.laplace(self.sphere.vortp, self.diffusion_order)
+        Diff = -self.nu*self.sphere.laplace(vortp, self.diffusion_order)
         
         #forcing term
         F = self.forcing_tseries[self.tstep,:]

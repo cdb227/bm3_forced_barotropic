@@ -112,6 +112,8 @@ class Sphere:
         self.nspecindx = self.to_spectral(self.rlats).shape[0]
         #index of m,n components for spherical harmonics
         self.specindxm, self.specindxn = spharm.getspecindx(self._ntrunc)
+        
+        #eigenvalues of the laplacian matrix
         self._laplacian_eigenvalues = (
                 self.specindxn * (1. + self.specindxn) / rsphere / rsphere
                 ).astype(np.complex64, casting="same_kind")
