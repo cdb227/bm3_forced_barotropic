@@ -125,8 +125,9 @@ class Sphere:
         Parameters:
             ics (array : (2,nlat,nlon) : initial conditions of vorticity perturbation and temp perturbation, respectively
         """
-        self.vortp = ics[0]
-        self.tehtap = ics[1]
+        print(self.vortm)
+        self.vortp = ics[0] + self.vortm
+        self.thetap = ics[1]
         
     
     ##+++spectral transforms+++    
