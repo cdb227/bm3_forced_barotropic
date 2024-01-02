@@ -48,25 +48,22 @@ class Solver:
         self.nu = kwargs.get('nu', 0.)
         self.diffusion_order = kwargs.get('diffusion_order', 2)
         
-        #print(kwargs.get('nu'))
+        print('integrating with: ', 'nu=',self.nu,'diffusion_order=',self.diffusion_order)
+        
         # Robert-Asselin filter strength
         self.r = 0.02    
-               
-        m, n = self.sphere.specindxm, self.sphere.specindxn
-        el = (m + n) * (m + n + 1) / float(self.sphere.s.rsphere) ** 2
-        #normalize by truncation level?
-        self.damping = self.nu * \
-                      (el / el[self.sphere._ntrunc]) ** self.diffusion_order
-#         el = ((n) * (n + 1) / float(self.sphere.s.rsphere) ** 2).astype(np.complex64, casting="same_kind")
-#         self.damping = self.nu * el**self.diffusion_order
-                
+        
+        #use laplacian eigenvalues for damping/diffusion term
+        self.damping = self.nu * np.abs(self.sphere._laplacian_eigenvalues) ** self.diffusion_order
+        
+        #TODO: integrate forcing
         #self.forcing = forcing.forcing_tseries
             
     def integrate_dynamics(self, temp_linear=True, vort_linear=True):
         """
         Integrating function using leapfrog. By default, only the linear terms are considered for integration
         """
-               
+        #pointers for output      
         k0 = 0 
         k = 0
                 
@@ -93,73 +90,65 @@ class Solver:
         jold,jnow,jnew = 0,1,2
         i0 = 0
         
-      
+        #main integration loop
         for j, t in enumerate(tqdm(self.ts)):
             
-            # Step 1/2: Compute (f + ζ)u and (f + ζ)v on the grid at time t
+            # Step 1 & 2: Compute (f + ζ)u and (f + ζ)v on the grid at time t
             #since z = perturbation, this calculates u', v'  
             u,v = self.sphere.vrtdiv2uv(z[:,:,jnow], np.zeros(z[:,:,jnow].shape)) #divergenceless flow
-            if vort_linear:
+            if vort_linear: #just linear terms
                 #dudt = (f+zbar)v'
                 du = (self.sphere.f+self.sphere.Z)*v
                 #dvdt =-(f+z)ubar
                 dv =-(self.sphere.f+z[:,:,jnow])*self.sphere.U
-                #additional terms need to be removed 
-                # (f+zbar)dvdy 
+                #additional term of (f+zbar)dvdy need to be removed
                 _,dvdy = self.sphere.gradient(v)
                 mterm = (self.sphere.f+self.sphere.Z)*dvdy
                 
-            else:
-                #use total fields
+            else: #use total fields
                 du =  (self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(v+self.sphere.V)
                 dv = -(self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(u+self.sphere.U)
-                
 
             # Step 3: Compute the curl of dudt, dvdt to find dzdt in spectral
             dz[:,i0], _ = self.sphere.s.getvrtdivspec(du, dv)
-            if vort_linear: 
-                dz[:,i0] += self.sphere.to_spectral(mterm) #remove additional term if linear
+            if vort_linear: dz[:,i0] += self.sphere.to_spectral(mterm) #remove additional term if linear
                                     
-            #Step 4: Compute & apply damping Z-> Z-nu(2dt)
+            #Step 4: Compute & apply damping 
             #convert z grid to spectral space first
             zs = self.sphere.to_spectral(z)
-           
-            coeffs = 1. / (1. + self.damping * 2 * self.dt)
-            if j==0: coeffs/2. #for dt difference in first step
+            
+            #compute:  Z -> (Z-nu*L**n*zold)/(1+nu*2dt*L**n)
+            c = 1. / (1. + self.damping * 2 * self.dt)
+            if j==0: c=c/2. #for dt difference in first step
                 
             #apply damping to z tendency
-            dz[:,i0] = coeffs * (dz[:,i0]  - self.damping * zs[:,jold] )
+            dz[:,i0] = c * (dz[:,i0]  - self.damping * zs[:,jold] )
             
-            
-
-            #step forward in time
-            if j==0: #simple eularian first forward step
+            #Step 5: step forward in time
+            if j==0: #if first step, use eularian forward
                 zs[:,jnew] = zs[:, jnow] + self.dt * dz[:,i0]
         
-            else: #otherwise leapfrog
-                
-                #Step 5 Use leapfrog to generate the spectral vorticity ζ(t + ∆t)
+            else: #otherwise, use leapfrog
                 zs[:, jnew]  = zs[:,jold] + 2*self.dt*dz[:,i0]
                 
-                #5.1 apply robert filter
-                zs[:, jnow] = (1-2*self.r)*zs[:,jnow] + self.r*(zs[:,jnew] + zs[:,jold])
-                
+            #5.1 apply robert filter
+            zs[:, jnow] = (1-2*self.r)*zs[:,jnow] + self.r*(zs[:,jnew] + zs[:,jold])
+
             
             #Step 6: cycle array, now->old, new->now
             zs[:,jold], zs[:,jnow] = zs[:,jnow], zs[:,jnew]
-            #zs[:,jnow]=zs[:,jnew]
-            z[:] = self.sphere.to_grid(zs)
+            z[:] = self.sphere.to_grid(zs) #convert back to grid space for next iteration
            
-            k += 1
-        
+            k += 1 #add to output
             if k >= self.ofreq:
                 k0 += 1
                 zo[k0, :, :] = z[:, :,jold]
                 k = 0
                 
+        #convert to flow and save output        
         crds = [np.linspace(0, self.T, self.No), self.sphere.glat.data[:], self.sphere.glon.data[:]]
         vort = xr.DataArray(zo, name = 'vort', coords = crds, dims = ['time', 'y', 'x'])
-        theta   = xr.DataArray(so, name = 'theta',   coords = crds, dims = ['time', 'y', 'x'])
+        theta   = xr.DataArray(so, name = 'theta',   coords = crds, dims = ['time', 'y', 'x']) #placeholder for now
 
         return self.to_flow(vort,theta)
    
@@ -170,7 +159,6 @@ class Solver:
         N, Ny, Nx = vort.shape
         uo   = np.zeros((N, Ny, Nx), 'd')
         vo   = np.zeros((N, Ny, Nx), 'd')
-        #vortm,_= self.uv2vrtdiv(self.U,self.V)
 
         for i in range(N):
             uo[i],vo[i] = self.sphere.vrtdiv2uv(vort[i].values, self.sphere.vortp_div, realm = 'grid')
