@@ -80,8 +80,8 @@ class Sphere:
         self.vortp_div = np.zeros(self.rlats.shape, dtype = 'd')
         
         #mean vorticity field based on background winds
-        self.vortm,_ = self.uv2vrtdiv(self.U,self.V)
-        self.dxvortp,self.dyvortm = self.gradient(self.vortm)
+        self.Z,_ = self.uv2vrtdiv(self.U,self.V)
+        #self.dxvortp,self.dyvortm = self.gradient(self.vortm)
         
         #temperature fields
         self.theta0 = theta0
@@ -125,8 +125,7 @@ class Sphere:
         Parameters:
             ics (array : (2,nlat,nlon) : initial conditions of vorticity perturbation and temp perturbation, respectively
         """
-        print(self.vortm)
-        self.vortp = ics[0] + self.vortm
+        self.vortp = ics[0]# + self.vortm
         self.thetap = ics[1]
         
     
