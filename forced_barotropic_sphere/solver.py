@@ -96,22 +96,29 @@ class Solver:
             # Step 1 & 2: Compute (f + ζ)u and (f + ζ)v on the grid at time t
             #since z = perturbation, this calculates u', v'  
             u,v = self.sphere.vrtdiv2uv(z[:,:,jnow], np.zeros(z[:,:,jnow].shape)) #divergenceless flow
-            if vort_linear: #just linear terms
-                #dudt = (f+zbar)v'
-                du = (self.sphere.f+self.sphere.Z)*v
-                #dvdt =-(f+z)ubar
-                dv =-(self.sphere.f+z[:,:,jnow])*self.sphere.U
-                #additional term of (f+zbar)dvdy need to be removed
-                _,dvdy = self.sphere.gradient(v)
-                mterm = (self.sphere.f+self.sphere.Z)*dvdy
-                
-            else: #use total fields
-                du =  (self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(v+self.sphere.V)
-                dv = -(self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(u+self.sphere.U)
-
+            
+            #total fields:
+            du =  (self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(v+self.sphere.V)
+            dv = -(self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(u+self.sphere.U)
+            
             # Step 3: Compute the curl of dudt, dvdt to find dzdt in spectral
             dz[:,i0], _ = self.sphere.s.getvrtdivspec(du, dv)
-            if vort_linear: dz[:,i0] += self.sphere.to_spectral(mterm) #remove additional term if linear
+            
+            if vort_linear: #remove nonlinear terms
+                #dudt = (f+zbar)v'
+                du = (self.sphere.f+self.sphere.Z)*v
+                
+                #dvdt =-(f+z)u
+                dv = -(self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(u+self.sphere.U)
+                #additional term to be removed
+                dzdx,_ = self.sphere.gradient(z[:,:,jnow])
+                mterm1 = u*dzdx
+                dudx,_ = self.sphere.gradient(u)
+                mterm2 = z[:,:,jnow]*dudx
+                                            
+
+            if vort_linear: 
+                dz[:,i0] += self.sphere.to_spectral((mterm1+mterm2)) #remove additional term if linear
                                     
             #Step 4: Compute & apply damping 
             #convert z grid to spectral space first
