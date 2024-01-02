@@ -105,21 +105,20 @@ class Solver:
             dz[:,i0], _ = self.sphere.s.getvrtdivspec(du, dv)
             
             if vort_linear: #remove nonlinear terms
-                #dudt = (f+zbar)v'
-                du = (self.sphere.f+self.sphere.Z)*v
-                
-                #dvdt =-(f+z)u
-                dv = -(self.sphere.f + (z[:,:,jnow]+self.sphere.Z))*(u+self.sphere.U)
-                #additional term to be removed
-                dzdx,_ = self.sphere.gradient(z[:,:,jnow])
-                mterm1 = u*dzdx
+                dzdx,dzdy = self.sphere.gradient(z[:,:,jnow])
                 dudx,_ = self.sphere.gradient(u)
-                mterm2 = z[:,:,jnow]*dudx
-                                            
-
-            if vort_linear: 
-                dz[:,i0] += self.sphere.to_spectral((mterm1+mterm2)) #remove additional term if linear
-                                    
+                _,dvdy = self.sphere.gradient(v)
+                
+                du_nlterm = v*dzdy+z[:,:,jnow]*dvdy
+                
+                dv_nlterm = u*dzdx+z[:,:,jnow]*dudx
+                
+                #du = (self.sphere.f + self.sphere.Z)*v
+                
+                #dz[:,i0],_ = self.sphere.s.getvrtdivspec(du, dv)
+                
+                dz[:,i0] += self.sphere.to_spectral(dv_nlterm + du_nlterm)
+                
             #Step 4: Compute & apply damping 
             #convert z grid to spectral space first
             zs = self.sphere.to_spectral(z)
