@@ -36,13 +36,13 @@ class Solver:
         self.No = int(self.Nt/ofreq)+1         #number of outputs
         self.ofreq = ofreq                     #output frequency
         
-        tau = kwargs.get('tau', 8)  # Thermal relaxation timescale (days)
-        Kappa = kwargs.get('Kappa', 0.1)  # Thermal relaxation timescale (days)
-        rs = kwargs.get('rs', 1/7.)  # Thermal relaxation timescale (days)
+        tau = kwargs.get('tau', 0)
+        Kappa = kwargs.get('Kappa', 0.1)
+        rs = kwargs.get('rs', 1/7.)
         
-        self.Tau_relax = tau*d2s #8 days thermal relaxation timescale
-        self.Kappa = Kappa*d2s # 0.1 day thermal damping
-        self.rs = rs * 1/d2s #frictional dissipation 7 days,
+        self.tau = tau / d2s      # Thermal relaxation rate
+        self.Kappa = Kappa*d2s    # 0.1 day thermal damping
+        self.rs = rs * 1/d2s      # frictional dissipation 7 days,
 
         # Hyperdiffusion coefficient and order
         self.nu = kwargs.get('nu', 0.)
@@ -67,27 +67,38 @@ class Solver:
         k0 = 0 
         k = 0
                 
-        #vorticity perturbation in grid space
-        z = np.zeros((self.sphere.nqlat,self.sphere.nqlon), 'd')
-
         #vorticity perturbation in spectral space
         #old, now, new
         zs = np.zeros((self.sphere.nspecindx, 3), dtype=np.complex128)
+
+        # Dummy divergence perturbation
+        ds = np.zeros((self.sphere.nspecindx, ) , dtype=np.complex128)
 
         #tendencies in spectral space
         dz = np.zeros((self.sphere.nspecindx, 1), dtype=np.complex128)
         
         #vorticity peturbation output to be saved    
         zo = np.zeros((self.No, self.sphere.nlat,self.sphere.nlon), 'd')
+
+        # Tracer in spectral space
+        trs = np.zeros((self.sphere.nspecindx, 3), dtype=np.complex128)
+
+        dtrs = np.zeros((self.sphere.nspecindx, 1), dtype=np.complex128)
+
         #eventually this will be used for tracer variable, placeholder for now
         so = np.zeros((self.No, self.sphere.nlat,self.sphere.nlon), 'd')
 
         #set old, now vorticity to ics, used for diffusion
         zs[:, 0] = self.sphere.to_spectral(self.sphere.vortp)
         zs[:, 1] = zs[:, 0]
+
+        # Initialize tracer in the same way
+        trs[:, 0] = self.sphere.to_spectral(self.sphere.thetap)
+        trs[:, 1] = trs[:, 0]
         
         #save to first step of output
         zo[k0, :, :] = self.sphere.to_linear_grid(zs[:, 0])
+        so[k0, :, :] = self.sphere.to_linear_grid(trs[:, 0])
         
         # pointers: j -> state, i -> tendency
         jold,jnow,jnew = 0,1,2
@@ -97,10 +108,10 @@ class Solver:
         for j, t in enumerate(tqdm(self.ts)):
             # Step 1 & 2: Compute (f + ζ)u and (f + ζ)v on the grid at time t
             #since z = perturbation, this calculates u', v'  
-
             z = self.sphere.to_quad_grid(zs[:, jnow])
-            u,v = self.sphere.vrtdiv2uv(z, np.zeros(z.shape), grid='quad') #divergenceless flow
-            
+            u,v = self.sphere.vrtdiv2uv(zs[:, jnow], ds, realm='spec', grid='quad') #divergenceless flow
+
+            # Compute advection tendencies
             if vort_linear: #remove nonlinear terms
                 #Linear contributions fields:
                 du =  (z * self.sphere.V + (self.sphere.f + self.sphere.Z) * (self.sphere.V + v))
@@ -111,37 +122,63 @@ class Solver:
                 #total fields:
                 du =  (self.sphere.f + self.sphere.Z + z)*(v+self.sphere.V)
                 dv = -(self.sphere.f + self.sphere.Z + z)*(u+self.sphere.U)
-                
+
+            # Add frictional damping
+            du  += -u * self.rs
+            dv  += -v * self.rs
+
             # Step 3: Compute the curl of du, dv to find dzdt in spectral
             dz[:, inow], _ = self.sphere.sq.getvrtdivspec(du, dv, self.sphere._ntrunc)
+
+            # Step 1a: Compute tracer & gradients in grid space
+            tr = self.sphere.to_quad_grid(trs[:, jnow])
+            dx_tr, dy_tr = self.sphere.gradient(trs[:, jnow], realm = 'spec', grid = 'quad')
+
+            # Compute advection tendencies
+            dtr = -u * self.sphere.dxthetam - self.sphere.U * dx_tr \
+                  -v * self.sphere.dythetam - self.sphere.V * dy_tr
+            if not temp_linear:
+                dtr -= u * dx_tr + v * dy_tr
+
+            # Add thermal relaxation
+            dtr += -tr * self.tau
+   
+
+            dtrs[:, inow] = self.sphere.to_spectral(dtr)
                 
             if j==0: #for dt difference in first step
                 #Step 4: Compute & apply damping 
                 #compute:  Z -> (Z-nu*L**n*zold)/(1+nu*2dt*L**n)
                 c = 1. / (1. + self.damping * self.dt)
 
-                #apply damping to z tendency
-                dz[:, inow] = c * (dz[:,inow] - self.damping * zs[:,jold])
+                # Apply damping to tendency
+                dz  [:, inow] = c * (dz  [:,inow] - self.damping * zs [:,jold])
+                dtrs[:, inow] = c * (dtrs[:,inow] - self.damping * trs[:,jold])
 
                 #Step 5: step forward in time; use eularian forward
-                zs[:, jnew] = zs[:, jnow] + self.dt * dz[:,inow]
+                zs [:, jnew] = zs [:, jnow] + self.dt * dz  [:,inow]
+                trs[:, jnew] = trs[:, jnow] + self.dt * dtrs[:,inow]
             else:
                 #Step 4: Compute & apply damping 
                 c = 1. / (1. + self.damping * 2 * self.dt)
 
-                #apply damping to z tendency
-                dz[:, inow] = c * (dz[:,inow] - self.damping * zs[:,jold])
+                # Apply damping to z tendency
+                dz  [:, inow] = c * (dz  [:,inow] - self.damping * zs [:,jold])
+                dtrs[:, inow] = c * (dtrs[:,inow] - self.damping * trs[:,jold])
                 
                 #Step 5: step forward in time; use leapfrog
-                zs[:, jnew] = zs[:, jold] + 2 * self.dt * dz[:,inow]
+                zs [:, jnew] = zs [:, jold] + 2 * self.dt * dz  [:,inow]
+                trs[:, jnew] = trs[:, jold] + 2 * self.dt * dtrs[:,inow]
                 
             #5.1 apply robert filter
-            zs[:, jnow] = (1-2*self.r)*zs[:,jnow] + self.r*(zs[:,jnew] + zs[:,jold])
+            zs [:, jnow] = (1-2*self.r)*zs [:,jnow] + self.r*(zs [:,jnew] + zs [:,jold])
+            trs[:, jnow] = (1-2*self.r)*trs[:,jnow] + self.r*(trs[:,jnew] + trs[:,jold])
 
             k += 1 #add to output
             if k >= self.ofreq:
                 k0 += 1
-                zo[k0, :, :] = self.sphere.to_linear_grid(zs[:, jnow])
+                zo[k0, :, :] = self.sphere.to_linear_grid(zs [:, jnow])
+                so[k0, :, :] = self.sphere.to_linear_grid(trs[:, jnow])
                 k = 0
 
             #Step 6: cycle array, now->old, new->now
@@ -174,7 +211,7 @@ class Solver:
         vortp = (vort - self.sphere.Z_lin).rename('vortp')
         
         thetap = theta.rename('thetap')
-        theta = (thetap + self.sphere.thetaeq).rename('theta')
+        theta = (thetap + self.sphere.thetaeq_lin).rename('theta')
         
         #psi = xr.DataArray(psio, name = 'psi', coords = crds, dims = ['time', 'y', 'x'])
         u   = xr.DataArray(uo, name = 'u',   coords = crds, dims = ['time', 'y', 'x'])
@@ -186,7 +223,3 @@ class Solver:
         """:py:meth:`solve_diffusion` with spectral in- and output fields."""
         eigenvalues_op = self.sphere._laplacian_eigenvalues ** order
         return field_spectral / (1. + dt * coeff * eigenvalues_op)
-            
-        
-
- 
