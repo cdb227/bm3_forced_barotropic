@@ -131,7 +131,7 @@ def plot_energy(sln, normalize_to_ic = True):
     return axs
 
 #+++Plotting routines for ensembles+++#
-def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2), trjs=None,ts=None, proj = ccrs.NorthPolarStereo()):
+def plot_theta_ensspread(ds, t, levels=np.arange(0,10,2), trjs=None,ts=None, proj = ccrs.NorthPolarStereo()):
     """
     Plot ensemble spread (defined as 1 std of ensemble) of theta
     """

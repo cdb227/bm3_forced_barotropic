@@ -48,7 +48,7 @@ class Forcing:
         
         for tt in range(1,self.Nt+1):
             W= np.random.normal(0,1, size = (self.sphere.nspecindx, 2)).view(np.complex128).ravel() #complex white noise
-            forcing_tseries[tt,:]= A*lat_mask*self.sphere.to_grid(np.real(W*self.sphere.to_spectral(np.exp(1.j*wn_forcing*self.sphere.rlons))))
+            forcing_tseries[tt,:]= A*lat_mask*self.sphere.to_linear_grid(np.real(W*self.sphere.to_spectral(np.exp(1.j*wn_forcing*self.sphere.rlons))))
             
         self.forcing_tseries=forcing_tseries
         
@@ -74,14 +74,14 @@ class Forcing:
         stirwn = np.where((8<=self.sphere.specindxn) & (self.sphere.specindxn<=12) ,1,0) #force over a set of wavenumbers
         
         
-        forcing_tseries[0,:] = self.sphere.to_grid(Si*stirwn)
+        forcing_tseries[0,:] = self.sphere.to_linear_grid(Si*stirwn)
         for tt in range(1,self.Nt+1):
             Ai= np.random.normal(0, 1, size=(self.sphere.nspecindx))
             Bi= np.random.normal(0, 1, size=(self.sphere.nspecindx))
             
             Si = (Ai+1j*Bi)*(1-np.exp(-2*self.dt/decorr_timescale))**(0.5) + np.exp(-self.dt/decorr_timescale)*Si
             
-            forcing_tseries[tt,:]=  self.sphere.to_grid((Si*stirwn))
+            forcing_tseries[tt,:]=  self.sphere.to_linear_grid((Si*stirwn))
                     
             
         self.forcing_tseries = A*forcing_tseries*lat_mask[None,:,:]

@@ -14,7 +14,7 @@ from forced_barotropic_sphere.solver import Solver
 d2s = 86400
 
 
-def ensemble_forcing_sampling(nlat, nlon, dt, n_ens = 5, produce_plots=False):
+def ensemble_forcing_sampling(M, dt, n_ens = 5, produce_plots=False):
     """
     Function designed to test how well a certain number of ensemble members samples a forcing. 
     Used to test whether more ensemble members are needed or not.
@@ -26,7 +26,7 @@ def ensemble_forcing_sampling(nlat, nlon, dt, n_ens = 5, produce_plots=False):
     """
     T = 10*365*d2s #climatology run (10 yrs)
     Nt = T//dt
-    st= Sphere(nlat,nlon)
+    st= Sphere(M)
     F = Forcing(st,dt,T)
     Si = F.generate_rededdy_start()
     fcli = F.generate_rededdy_tseries(A=1, Si=Si)
@@ -35,7 +35,7 @@ def ensemble_forcing_sampling(nlat, nlon, dt, n_ens = 5, produce_plots=False):
     Nt = T//dt
     
     
-    st= Sphere(nlat,nlon)
+    st= Sphere(M)
     F = Forcing(st,dt,T)
             
     nruns = 200
@@ -44,11 +44,11 @@ def ensemble_forcing_sampling(nlat, nlon, dt, n_ens = 5, produce_plots=False):
     
     
     
-    toplevel = np.empty((nruns,len(n_ens),nlat,nlon)) #ensemble samples
+    toplevel = np.empty((nruns,len(n_ens),st.nlat,st.nlon)) #ensemble samples
     
     for ei,ee in tqdm(enumerate(n_ens)):
         for nr in range(nruns):
-            intlevel = np.empty((ee,Nt+2,nlat,nlon))
+            intlevel = np.empty((ee,Nt+2,st.nlat,st.nlon))
 
             for nn in range(ee):
                 Si = F.generate_rededdy_start()
@@ -65,29 +65,32 @@ def ensemble_forcing_sampling(nlat, nlon, dt, n_ens = 5, produce_plots=False):
     return fcli, toplevel,n_ens
 
 
-def climatological_spread(nlat,nlon,dt,A=5e-12, produce_plots=False): 
+def climatological_spread(M, dt, A=5e-12, base_state='solid', temp_linear = True, vort_linear=True, produce_plots=False, **kwargs): 
     """
     Derive the climatology through an ensemble of 
     """
     
     #many shorter runs
-    Nt = 7884*5 #number of integration steps (7884 = 1 yr)
-    T= Nt*dt #total integration time
+    T = 365*d2s #total integration time
+    Nt= T//dt #total integration time
     print('integrating for ', T/86400, ' days, with a dt of ', dt/86400, ' days')
     
     ofreq=2
-    nr = 100
-    vort_std = np.empty((nr,nlat,nlon))
-    theta_std = np.empty((nr,nlat,nlon))
+    nr = 2
+    
+    st= Sphere(M)
+    
+    vort_std = np.empty((nr,st.nlat,st.nlon))
+    theta_std = np.empty((nr,st.nlat,st.nlon))
 
     slns = []
     for nn in tqdm(range(nr)):
-        st = Sphere(nlat,nlon, U=0.)
+        st = Sphere(M, base_state=base_state)
         F = Forcing(st,dt,T)
         Si = F.generate_rededdy_start()
         F.generate_rededdy_tseries(A=A, Si=Si)
 
-        sln = Solver(st, forcing=F, ofreq=ofreq).integrate_dynamics(temp_linear=True, vort_linear=True)
+        sln = Solver(st, forcing=F, ofreq=ofreq, **kwargs).integrate_dynamics(temp_linear=temp_linear, vort_linear=vort_linear)
         slns.append(sln.isel(time=slice(7884//52//ofreq*2,Nt//ofreq)).std('time')) #remove the first 2 week spin up period
         
     sln= xr.concat(slns, dim='runs')

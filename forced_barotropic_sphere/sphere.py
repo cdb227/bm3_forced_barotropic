@@ -104,7 +104,8 @@ class Sphere:
         self.theta0 = theta0
         self.deltheta = deltheta
         #temp. distribution
-        self.thetaeq = self.theta0 - deltheta*np.sin(self.rlats)**2
+        self.thetaeq     = self.theta0 - deltheta*np.sin(self.rqlats)**2
+        self.thetaeq_lin = self.theta0 - deltheta*np.sin(self.rlats)**2
         
         #+++Addition of step function in temperature+++#
         sc = 50. #ice edge location
@@ -117,7 +118,7 @@ class Sphere:
         
         #initial temp of sphere is the equil. temp.
         self.theta = self.thetaeq
-        self.dxthetam, self.dythetam  = self.gradient(self.thetaeq)
+        self.dxthetam, self.dythetam  = self.gradient(self.thetaeq, grid = 'quad')
         
         #perturbation fields (none by default)
         self.vortp = np.zeros(self.gqlats.shape)
@@ -215,7 +216,7 @@ class Sphere:
         psig, chig = self.s.getpsichi(u, v, ntrunc=trunc)
         return(psig, chig)
 
-    def vrtdiv2uv(self, vrt, div, realm='grid', grid = 'linear'):
+    def vrtdiv2uv(self, vrt, div, realm = 'grid', grid = 'linear'):
         """
         # u and v wind from vorticity and divergence
         # Input: vrt, div (either grid or spec)
@@ -234,28 +235,42 @@ class Sphere:
         elif realm in ['s', 'spec', 'spectral']:
             vrts = vrt
             divs = div
+        else:
+            raise ValueError("realm (%s) must be either 'grid' or 'spectral'" % realm)
+
         ug, vg = s.getuv(vrts, divs)
         return(ug, vg)
 
-    def gradient(self, var, trunc=None):
+    def gradient(self, var, realm = 'grid', grid = 'linear'):
         """
         Calculate horizontal gradients
         Input: var
         Output: dvar/dx, dvar/dy
         """
+        if grid == 'linear':
+           s = self.s
+        elif grid == 'quad':
+           s = self.sq
+        else:
+           raise ValueError('grid (%s) must be either "linear" or "quad".')
 
-        try:
-            var = var.filled(fill_value=np.nan)
-        except AttributeError:
-            pass
-        if np.isnan(var).any():
-            raise ValueError('var cannot contain missing values')
-        try:
-            varspec = self.s.grdtospec(var, ntrunc=trunc)
-        except ValueError:
-            raise ValueError('input field is not compatitble')
-        dxvarg, dyvarg = self.s.getgrad(varspec)
-        return(dxvarg, dyvarg)
+        if realm in ['g', 'grid']:
+            try:
+                var = var.filled(fill_value=np.nan)
+            except AttributeError:
+                pass
+            if np.isnan(var).any():
+                raise ValueError('var cannot contain missing values')
+            try:
+                varspec = self.to_spectral(var)
+            except ValueError:
+                raise ValueError('input field is not compatitble')
+        elif realm in ['s', 'spec', 'spectral']:
+            varspec = var
+        else:
+            raise ValueError("realm (%s) must be either 'grid' or 'spectral'" % realm)
+        
+        return s.getgrad(varspec)
     
     def laplace(self, f, n = 1):
         """Laplacian of an input field.

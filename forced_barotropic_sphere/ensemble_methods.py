@@ -19,13 +19,15 @@ import cython_routines as cr
 #import forced_barotropic_sphere.bm_methods as bm_methods
 d2s = 86400
 
-def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, A=5e-12, 
+def integrate_ensemble(M, dt, T, ofreq, ics=None, A=5e-12, base_state='solid',
                        n_ens = 5,  vortpert=0., thetapert=0., forcingpert=0.,
-                       share_forcing=True, temp_linear=True, vort_linear=True):
+                       share_forcing=True, temp_linear=True, vort_linear=True, **kwargs):
     """
     Function to generate an ensemble of forced barotropic model,
     these are initialized with the same forcing term, which decorrelates after about a week.
     """
+    nlon = 2*M + 1
+    nlat = M + 1
 #     st= Sphere(nlat,nlon)
 #     F = Forcing(st,dt,T)
     
@@ -44,7 +46,7 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, A=5e-12,
         ics_e = np.array([ics[0] + np.random.normal(loc=0., scale = vortpert, size= ics[0].shape),
                                               ics[1] + np.random.normal(loc=0., scale = thetapert, size=ics[1].shape)])
             
-        st= Sphere(nlat,nlon)
+        st= Sphere(M, base_state=base_state)
         st.set_ics(ics_e)
         
         if ee==0: #'control run'
@@ -52,7 +54,7 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, A=5e-12,
             Si = F.generate_rededdy_start()
             F.generate_rededdy_tseries(A=A, Si=Si)
             
-            solver = Solver(st, forcing=F, ofreq=ofreq)
+            solver = Solver(st, forcing=F, ofreq=ofreq, **kwargs)
             slns.append(solver.integrate_dynamics(temp_linear=temp_linear, vort_linear=vort_linear))
             
         else: #each perturbed member
@@ -60,7 +62,7 @@ def integrate_ensemble(nlat, nlon, dt, T, ofreq, ics=None, A=5e-12,
                 Si = F.generate_rededdy_start()
             F.generate_rededdy_tseries(A=A, Si=Si)
             
-            solver = Solver(st, forcing = F, ofreq=ofreq)
+            solver = Solver(st, forcing = F, ofreq=ofreq , **kwargs)
             slns.append(solver.integrate_dynamics(temp_linear=temp_linear,vort_linear=vort_linear))
     slns = xr.concat(slns,dim= "ens_mem")
     
