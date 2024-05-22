@@ -54,7 +54,7 @@ class Solver:
                 
         self.forcing = forcing.Forcing(sphere, Si=Si)
             
-    def integrate_dynamics(self):
+    def integrate_dynamics(self, verbose=False):
         """
         Integrating function using leapfrog. By default, only the linear terms are considered for integration
         """
@@ -100,7 +100,7 @@ class Solver:
         inow = 0
         
         #main integration loop
-        for j, t in enumerate(self.ts):
+        for j, t in enumerate(tqdm(self.ts) if verbose else self.ts):
             # Step 1 & 2: Compute (f + ζ)u and (f + ζ)v on the grid at time t
             #since z = perturbation, this calculates u', v'  
             z = self.sphere.to_quad_grid(zs[:, jnow])
