@@ -1,15 +1,14 @@
 import numpy as np
-import spharm
 import random
 from tqdm import tqdm
 import xarray as xr
 
-from forced_barotropic_sphere.sphere import Sphere
-from forced_barotropic_sphere.solver import Solver
-from forced_barotropic_sphere.forcing import Forcing
-import sys
-sys.path.append("../")
 import cython_routines as cr
+
+from model.sphere import Sphere
+from model.solver import Solver
+from model.forcing import Forcing
+from utils import config, constants
 
 #cython C methods
 #import sys
@@ -19,51 +18,39 @@ import cython_routines as cr
 #import forced_barotropic_sphere.bm_methods as bm_methods
 d2s = 86400
 
-def integrate_ensemble(M, dt, T, ofreq, ics=None, A=5e-12, base_state='solid',
-                       n_ens = 5,  vortpert=0., thetapert=0., forcingpert=0.,
-                       share_forcing=True, temp_linear=True, vort_linear=True, **kwargs):
+def integrate_ensemble(st, T, **kwargs):
     """
     Function to generate an ensemble of forced barotropic model,
     these are initialized with the same forcing term, which decorrelates after about a week.
     """
+    M = config.M
     nlon = 2*M + 1
     nlat = M + 1
-#     st= Sphere(nlat,nlon)
-#     F = Forcing(st,dt,T)
     
-#     #generate single forcing run to be used by each ensemble member
-# #     if forcing_type=='gaussian': 
-# #         F.generate_gaussianblob_tseries()
-# #     if forcing_type=='stochastic_eddy':
-# #         F.generate_stocheddy_tseries()
-#     if forcing_type=='red_eddy':
-#         F.generate_rededdy_tseries()
+    n_ens         = kwargs.get('ensemble_size', config.DEFAULT_ENS_SIZE)
+    ens_vpert     = kwargs.get('ensemble_vortp', 0.)
+    ens_tpert     = kwargs.get('ensemble_thetap', 0.)
+    ens_fpert     = kwargs.get('ensemble_forcep', 0.)
+    share_forcing = kwargs.get('share_forcing', True)
         
-    if ics.any()==None:
-        ics = np.array([np.zeros((nlat,nlon)), np.zeros((nlat,nlon))])
-    slns=[]
+    slns=[] #storage for each ensemble sln.
+    
+    if share_forcing:
+        Si = Forcing(sphere=st).evolve_rededdy() #get starting position for red eddy forcing
+        kwargs['red_eddy_start'] = Si #add start, then ensemble members decouple over time
+    
     for ee in tqdm(range(n_ens)): #generate each ensemble member individually and run barotropic model
-        ics_e = np.array([ics[0] + np.random.normal(loc=0., scale = vortpert, size= ics[0].shape),
-                                              ics[1] + np.random.normal(loc=0., scale = thetapert, size=ics[1].shape)])
-            
-        st= Sphere(M, base_state=base_state)
-        st.set_ics(ics_e)
         
-        if ee==0: #'control run'
-            F = Forcing(st,dt,T)
-            Si = F.generate_rededdy_start()
-            F.generate_rededdy_tseries(A=A, Si=Si)
+        ics_e = np.array([st.vortp  + np.random.normal(loc=0., scale = ens_vpert, size= st.vortp.shape),
+                          st.thetap + np.random.normal(loc=0., scale = ens_tpert, size= st.thetap.shape)])
             
-            solver = Solver(st, forcing=F, ofreq=ofreq, **kwargs)
-            slns.append(solver.integrate_dynamics(temp_linear=temp_linear, vort_linear=vort_linear))
-            
-        else: #each perturbed member
-            if not share_forcing:
-                Si = F.generate_rededdy_start()
-            F.generate_rededdy_tseries(A=A, Si=Si)
-            
-            solver = Solver(st, forcing = F, ofreq=ofreq , **kwargs)
-            slns.append(solver.integrate_dynamics(temp_linear=temp_linear,vort_linear=vort_linear))
+        st_e= Sphere(base_state=st.base_state)
+        st_e.set_ics(ics_e)
+        
+        solver = Solver(st_e, T=T, **kwargs)
+        slns.append(solver.integrate_dynamics())
+        
+
     slns = xr.concat(slns,dim= "ens_mem")
     
     return slns

@@ -5,23 +5,16 @@ import xarray as xr
 
 ###################################################
 # Define physical constants
-
-a = 6371e3         # Radius of the earth in m
-Omega = 7.29e-5    # Angular velocity of the earth in rad/s
-g00 = 9.81         # Acceleration due to gravity near the surface of the earth in m/s^2
-d2r = np.pi / 180. # Factor to convert degrees to radians
-r2d = 180. / np.pi # Factor to convert radians to degrees
-Tau = 6*86400
-#rs = 1/Tau
-
+import sys
+sys.path.append('../src')  # Add the 'src' directory to the Python path
+from utils import constants, config
 
 class Sphere:
     """
     Spectral class for setting up environment for forced batroptropic sphere
     contains routines to convert from lat/lon to sperical harmonics
     """
-    def __init__(self, M, U = 0., theta0=300., deltheta= 45.,
-                 rsphere=a, legfunc='stored', seaice=False, base_state='solid'):
+    def __init__(self, base_state='solid'):
         """
         initializes sphere for barotropic model.
         
@@ -33,28 +26,30 @@ class Sphere:
         * rsphere (float) : radius of sphere
         """
 
-        # Truncation, linear, and quadratic grids
+        # Truncation
+        M = config.M
         self._ntrunc = M
+        #linear grids
         self.nlon = 2*M + 1
         self.nlat = M + 1
-
+        #quadratic grids
         self.nqlon = 3*M + 1
         self.nqlat = int(np.ceil((3*M + 1)/2))
 
         # Linear transform grid (for output)
         self.s = spharm.Spharmt(self.nlon, self.nlat, gridtype='gaussian',
-                         rsphere=rsphere, legfunc=legfunc)
+                         rsphere=constants.RADIUS, legfunc='stored')
 
         # Quadradic transform grid (for numerics to avoid aliasing)
         self.sq = spharm.Spharmt(self.nqlon, self.nqlat, gridtype='gaussian',
-                         rsphere=rsphere, legfunc=legfunc)
+                         rsphere=constants.RADIUS, legfunc='stored')
         
-        # lat/lon grid in degrees
+        # linear lat/lon grid in degrees
         self.glon = 360./self.nlon*np.arange(self.nlon)
         self.glat = spharm.gaussian_lats_wts(self.nlat)[0]
         self.glons,self.glats = np.meshgrid(self.glon,self.glat)
 
-        # lat/lon grid in radians
+        # linear lat/lon grid in radians
         self.rlat = np.deg2rad(self.glat)
         self.rlon = np.deg2rad(self.glon)
         self.rlons, self.rlats = np.meshgrid(self.rlon, self.rlat)
@@ -69,26 +64,13 @@ class Sphere:
         self.rqlon = np.deg2rad(self.gqlon)
         self.rqlons, self.rqlats = np.meshgrid(self.rqlon, self.rqlat)
 
-        # Constants
-        # Earth's angular velocity
-        self.omega = Omega  # unit: s-1
-        # Gravitational acceleration
-        self.g = g00  # unit: m2/s
-        #beta
-        self.f =  2.*self.omega*np.sin(self.rqlats)
-        self.beta = 2.*self.omega*np.cos(self.rqlats)/rsphere
+        # assign body parameters from constants
+        self.f =  2.*constants.OMEGA*np.sin(self.rqlats)
+        self.beta = 2.*constants.OMEGA*np.cos(self.rqlats)/constants.RADIUS
         
         #define zonal mean background wind profiles
-        if base_state == 'solid':
-            self.solid_body(U = 10)
-        elif base_state == 'rest':
-            self.solid_body(U = 0)
-        elif base_state == 'held85':
-            self.held_1985()
-        elif base_state == 'gaussian':
-            self.gaussian_jet()       
-        else:
-            raise ValueError('base_state not recognized.')
+        self.base_state = base_state
+        self.set_base_state(self.base_state)
         
         #nondivergent flow
         self.vortp_div = np.zeros(self.rqlats.shape, dtype = 'd')
@@ -97,24 +79,18 @@ class Sphere:
         #mean vorticity field based on background winds
         self.Z,_     = self.uv2vrtdiv(self.U, self.V, grid = 'quad')
         self.Z_lin,_ = self.uv2vrtdiv(self.U, self.V, grid = 'linear')
-
-        #self.dxvortp,self.dyvortm = self.gradient(self.vortm)
-        
-        #temperature fields
-        self.theta0 = theta0
-        self.deltheta = deltheta
+                
         #temp. distribution
-        self.thetaeq     = self.theta0 - deltheta*np.sin(self.rqlats)**2
-        self.thetaeq_lin = self.theta0 - deltheta*np.sin(self.rlats)**2
+        self.thetaeq     = config.THETA0 - config.DELTHETA*np.sin(self.rqlats)**2
+        self.thetaeq_lin = config.THETA0 - config.DELTHETA*np.sin(self.rlats)**2
         
         #+++Addition of step function in temperature+++#
-        sc = 50. #ice edge location
-        sw = 1 #transition width (degrees lat)
-        sh = 10# temperature difference (K)
-        si = sh*np.tanh((self.rlats-np.radians(sc))*(1./np.radians(sw)))
-        si[si<0]=0.
-        if seaice:
+        if config.INCLUDE_ICE:
+            si = config.ICE_JUMP*np.tanh((self.rqlats-np.radians(config.ICE_LAT)) *\
+                                     (1./np.radians(config.ICE_WIDTH)))
+            si[si<0]=0.
             self.thetaeq = self.thetaeq-si
+        ####
         
         #initial temp of sphere is the equil. temp.
         self.theta = self.thetaeq
@@ -126,14 +102,13 @@ class Sphere:
         
         #nspectral
         #truncation (based on grid)
-        #self._ntrunc = (self.nlat - 1) if trunc is None else trunc
         self.nspecindx = self.to_spectral(self.rlats).shape[0]
         #index of m,n components for spherical harmonics
         self.specindxm, self.specindxn = spharm.getspecindx(self._ntrunc)
         
         #eigenvalues of the laplacian matrix
         self._laplacian_eigenvalues = (
-                self.specindxn * (1. + self.specindxn) / rsphere / rsphere
+                self.specindxn * (1. + self.specindxn) / constants.RADIUS / constants.RADIUS
                 ).astype(np.complex128, casting="same_kind")
         
         
@@ -143,9 +118,20 @@ class Sphere:
         Parameters:
             ics (array : (2,nlat,nlon) : initial conditions of vorticity perturbation and temp perturbation, respectively
         """
-        self.vortp = ics[0]# + self.vortm
+        self.vortp = ics[0]
         self.thetap = ics[1]
         
+    def set_base_state(self, base_state):
+        if base_state == 'solid':
+            self.solid_body(U = 10)
+        elif base_state == 'rest':
+            self.solid_body(U = 0)
+        elif base_state == 'held85':
+            self.held_1985()
+        elif base_state == 'gaussian':
+            self.gaussian_jet()       
+        else:
+            raise ValueError('base_state not recognized.')
     
     ##+++spectral transforms+++    
     def to_spectral(self, field_grid):
