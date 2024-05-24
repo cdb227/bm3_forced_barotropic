@@ -14,7 +14,7 @@ class Sphere:
     Spectral class for setting up environment for forced batroptropic sphere
     contains routines to convert from lat/lon to sperical harmonics
     """
-    def __init__(self, base_state='solid'):
+    def __init__(self, M = config.DEFAULT_M, base_state = config.DEFAULT_BASE_STATE):
         """
         initializes sphere for barotropic model.
         
@@ -27,7 +27,6 @@ class Sphere:
         """
 
         # Truncation
-        M = config.M
         self._ntrunc = M
         #linear grids
         self.nlon = 2*M + 1

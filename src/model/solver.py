@@ -36,23 +36,16 @@ class Solver:
         self.r           = kwargs.get('robert_filter', config.DEFAULT_robert_filter)# Robert-Asselin filter strength
         self.nu          = kwargs.get('nu', config.DEFAULT_nu )         # Hyperdiffusion coefficient
         self.diffusion_order = kwargs.get('diffusion_order', config.DEFAULT_diffusion_order) # Hyperdiffusion order
-        
-        #get optional forcing arguments
-        self.forcing_type =kwargs.get('forcing_type', config.DEFAULT_forcing)
-        Si               = kwargs.get('red_eddy_start', None) #starting position for red-eddy
-        
-        
+                       
         self.Nt = int(self.T / self.dt)        #number of steps   
         self.ts = np.arange(self.Nt) * self.dt #integration times
         
         self.No = int(self.Nt/self.ofreq)+1         #number of outputs
-
-        #print('integrating with: ', 'nu=',self.nu,'diffusion_order=',self.diffusion_order)
                
         #use laplacian eigenvalues for damping/diffusion term
         self.damping = self.nu * np.abs(self.sphere._laplacian_eigenvalues) ** self.diffusion_order
                 
-        self.forcing = forcing.Forcing(sphere, Si=Si)
+        self.forcing = forcing.Forcing(sphere, **kwargs)
             
     def integrate_dynamics(self, verbose=False):
         """
@@ -121,8 +114,9 @@ class Solver:
 
             # Step 3: Compute the curl of du, dv to find dzdt in spectral
             dz[:, inow], _ = self.sphere.sq.getvrtdivspec(du, dv, self.sphere._ntrunc)
-            
-            dz[:, inow] += self.forcing.evolve_rededdy(dt=self.dt)#finally, add forcing term in spectral space
+            dz[:, inow] += self.forcing.evolve_forcing()
+            #if self.forcing_type=='rededdy': #duct-tape, fix later.
+            #    dz[:, inow] += self.forcing.evolve_rededdy(dt=self.dt) #finally, add forcing term in spectral space
 
             # Step 1a: Compute tracer & gradients in grid space
             tr = self.sphere.to_quad_grid(trs[:, jnow])
