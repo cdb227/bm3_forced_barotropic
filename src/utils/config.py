@@ -26,8 +26,7 @@ DEFAULT_forcing_A         = 1e-11
 DEFAULT_ENS_SIZE          = 10
 
 ###seaice configs.
-INCLUDE_ICE         = False    #include sea ice in model or not
-ICE_LAT             = 50       #ice edge location(degrees lat)
+ICE_LAT             = 60       #ice edge location(degrees lat)
 ICE_WIDTH           = 1        #transition width (degrees lat)
 ICE_JUMP            = 10       #temperature jump for ice locations (K)
 
