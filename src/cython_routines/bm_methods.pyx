@@ -50,25 +50,6 @@ def is_root(double fa, double fb):
     """
     return fa*fb<0
 
-def brute_force(float a,float c, numpy.ndarray[numpy.float64_t, ndim= 1] mu, float s):
-    cdef int i
-    cdef float x, dx, f_a, f_x
-    cdef list maxes = []
-    cdef list mines = []
-    cdef bint pos_to_neg = True
-    dx = s/20
-    f_a = first_deriv_pdf(a-dx,mu,s)
-    x = a
-    while (x < c+2*dx):
-        f_x = first_deriv_pdf(x,mu,s)
-        if (f_a < 0) and (f_x > 0):
-            numpy.append(mines,(x+(x-dx))/2 ) 
-        elif (f_a > 0) and (f_x < 0):
-            numpy.append(maxes, (x+(x-dx))/2 )
-        f_a = f_x
-        x += dx
-    return maxes,mines
-
 def recursive_rootfinding(a, b, tol, fargs, f= first_deriv_pdf):
     """
     f is function to be evaluated, (a, b) are bounds, tol is search interval
@@ -87,8 +68,6 @@ def recursive_rootfinding(a, b, tol, fargs, f= first_deriv_pdf):
         else: #not a root
             return []
         
-    #Ms = roots[::2] #maxs
-    #ms = roots[1::2]#mins
     return roots
 
 
@@ -98,10 +77,6 @@ def root_finding(ensemble,bw, tol=0.1):
 ######
 
 #####DISTANCE ALGORITHM FOR CLUSTERING
-def binary_dis(p1, p2):
-    dis = list(map(operator.sub, p1, p2))
-    return (numpy.sum(numpy.abs(dis))) ** 0.5
-
 def binary_dis_C(numpy.ndarray[numpy.int_t, ndim= 1] p1, numpy.ndarray[numpy.int_t, ndim= 1] p2):
     cdef int arr_shape = p1.shape[0]
     cdef int i

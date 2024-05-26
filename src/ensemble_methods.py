@@ -1,14 +1,18 @@
 import numpy as np
-import random
-from tqdm import tqdm
 import xarray as xr
+import random
 
-import cython_routines as cr
+from tqdm import tqdm # used for progress tracking
+from functools import partial
+
+from cython_routines import bm_methods as cbm
 
 from model.sphere import Sphere
 from model.solver import Solver
 from model.forcing import Forcing
 from utils import config, constants
+
+
 
 #cython C methods
 #import sys
@@ -55,14 +59,30 @@ def integrate_ensemble(st, T, **kwargs):
     return slns
 
 ##+++bimodal specific functions+++
-def fit_KDE(ensemble):
+def fit_KDE(ensemble, pad = False, pbar= None):
+    if pbar is not None:
+        pbar.update(1)
     """fit a KDE to a distribution and find the critical points"""
     #TODO: check with our bm conditions? dependent on ensemble size, potentially useful for FP/FN experiments, but we'll likely
     #use much larger ensembles for synthetic study
     bw = 0.45730505192732634 * np.std(ensemble)
-    Ms,ms = cr.bm_methods.recursive_rootfinding(np.min(ensemble),np.max(ensemble),
+    roots = cbm.recursive_rootfinding(np.min(ensemble),np.max(ensemble),
                                                 tol=bw/10., fargs=(ensemble,bw))
-    return Ms,ms
+    
+    Ms = roots[::2] #maxs
+    ms = roots[1::2]#mins
+    
+    # Pad Ms and ms to fixed lengths to work with ufunc
+    if pad:
+        Ms_padded = np.full(5, np.nan)
+        ms_padded = np.full(5, np.nan)
+        Ms_padded[:len(Ms)] = Ms
+        ms_padded[:len(ms)] = ms
+        return Ms_padded, ms_padded
+    else:
+        return np.array(Ms), np.array(ms)
+
+
     #means,mins = bm_methods.root_finding(ensemble, bw)
     #binary_ensemble = np.zeros(ensemble.shape, dtype=int)
 #     bimodal= False
@@ -74,24 +94,23 @@ def fit_KDE(ensemble):
 #     return bimodal#, binary_ensemble
 
     
-def find_bimodality(slns):
-    """find all isntances in slns in which the ensemble is bimodal using KDE estimation + brute force root finding"""
-    #TODO: this isn't pretty. no need to check all locations
-    slns_arr = np.array(slns)
-    bm_arr = np.array(slns.sel(ens_mem=0))
-    for tt in tqdm(range(slns_arr.shape[1])):
-        #we'll try and be clever for how we search for bm, only do where spread > 50% percentile
-        spread_tt = np.std(slns_arr[:,tt], axis=0)
-        spread_min = np.percentile(spread_tt, 75)
-        
-        for yy in range(slns_arr.shape[2]):
-            for xx in range(slns_arr.shape[3]):
-                if (spread_tt[yy,xx] < spread_min) | (spread_min<1e-5):
-                    bm_arr[tt,yy,xx] = False
-                    continue
-                bm_arr[tt,yy,xx] = fit_KDE(slns_arr[:,tt,yy,xx])
-    return bm_arr
+def find_roots(ensemble_da):
+    """find all instances in slns in which the ensemble is bimodal using KDE estimation"""
     
+    total_steps = ensemble_da.sizes['time'] * ensemble_da.sizes['y'] * ensemble_da.sizes['x']
+    pbar = tqdm(total=total_steps, desc="Processing", position=0, leave=True)
+
+    fit_KDE_pbar = partial(fit_KDE, pbar=pbar)
+    # Apply the Cython function using xarray.apply_ufunc
+    roots = xr.apply_ufunc(
+        fit_KDE_pbar,  # the function to apply
+        ensemble_ss,           # the input DataArray
+        input_core_dims=[['ens_mem']],  # specify dimensions
+        output_core_dims=[['maxs'],['mins']], # output dimensions
+        vectorize=True,                # whether to vectorize, parallelize isn't really needed here
+        kwargs={'pad':True}
+    )
+    return roots
     
     
 #+++ Generate additional noise functions+++
