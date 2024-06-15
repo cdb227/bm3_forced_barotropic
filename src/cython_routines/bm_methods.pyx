@@ -2,10 +2,13 @@ import numpy
 import time
 import operator
 cimport numpy
-from libc.math cimport exp, M_PI
+from libc.math cimport exp, M_PI, sqrt
+ctypedef numpy.float64_t DOUBLE_t
 
-##### Continuous PDF
-def continuous_pdf(double x, numpy.ndarray[numpy.float64_t, ndim= 1] mu, double s):
+###
+#Functions for KDE fitting
+### Continuous PDF
+def continuous_pdf(double x, double[:] mu, double s):
     cdef double mult, total
     cdef int arr_shape = mu.shape[0]
     cdef int i
@@ -15,24 +18,25 @@ def continuous_pdf(double x, numpy.ndarray[numpy.float64_t, ndim= 1] mu, double 
         total += exp(-((x - mu[i])**2.) / (2. * s ** 2.))
     return total*mult
 
-#####First Derivative of PDF
-def first_deriv_pdf(double x, numpy.ndarray[numpy.float64_t, ndim= 1] mu, double s):
+#First Derivative of PDF
+def first_deriv_pdf(double x, double[:] mu, double s):
     """
     evaluate the first derivative of a Gaussian KDE at x
     mu should be the array of ensemble members and
     s the bandwidth
     """
-    cdef double mult, total
+    cdef double mult, total, denom
     cdef int arr_shape = mu.shape[0]
     cdef int i
-    mult = -(1 / (((2 * M_PI)**0.5) * arr_shape * s**3.))
+    mult = -(1 / ((sqrt(2 * M_PI)) * arr_shape * s**3.))
+    denom = (2 * s ** 2.)
     total = 0
     for i in range(arr_shape):
-        total += exp(-((x - mu[i]) ** 2.) / (2 * s ** 2.)) * (x - mu[i])
+        total += exp(-((x - mu[i]) ** 2.) / denom ) * (x - mu[i])
     return total*mult
 
-#####Second Derivative of PDF
-def second_deriv_pdf(double x, numpy.ndarray[numpy.float64_t, ndim= 1] mu, double s):
+#Second Derivative of PDF
+def second_deriv_pdf(double x, double[:] mu, double s):
     cdef double mult
     mult = -(1. / (((2 * numpy.pi)**0.5) * len(mu) * s**3.))
     cdef double total
@@ -43,113 +47,111 @@ def second_deriv_pdf(double x, numpy.ndarray[numpy.float64_t, ndim= 1] mu, doubl
         total += exp(-((x - mu[i]) ** 2.) / (2 * s ** 2.))*(1-((x-mu[i])**2)/s)
     return total*mult
 
-def is_root(double fa, double fb):
-    """
-    simle root determinate helper
-    check if f(a), f(b) are opposite signs
-    """
-    return fa*fb<0
+##
+#helper functions
+##
+cdef bint is_root(double fa, double fb):
+    return fa*fb<0 # check if f(a) , f(b) are opposite signs
 
-def recursive_rootfinding(a, b, tol, fargs, f= first_deriv_pdf):
-    """
-    f is function to be evaluated, (a, b) are bounds, tol is search interval
-    returns roots of function
-    """
-    roots = [] #save roots
-    mp=(b+a)/2. #midpoint
-        
-    if (b-a>tol):# not within tol, refine search
-        roots+=recursive_rootfinding(a, mp,tol, fargs) #check left side
-        roots+=recursive_rootfinding(mp, b,tol, fargs) #check right side 
-        
-    else: #if within tolerance determine if root or not
-        if is_root( f(a,*fargs) , f(b,*fargs) ): #use mp as root
-            return [mp]
-        else: #not a root
-            return []
-        
-    return roots
-
-
-def root_finding(ensemble,bw, tol=0.1):
-    roots = recursive_rootfinding(numpy.min(ensemble), numpy.max(ensemble), tol=tol, fargs=(ensemble,bw))
-    return roots
-######
-
-#####DISTANCE ALGORITHM FOR CLUSTERING
-def binary_dis_C(numpy.ndarray[numpy.int_t, ndim= 1] p1, numpy.ndarray[numpy.int_t, ndim= 1] p2):
-    cdef int arr_shape = p1.shape[0]
+cdef double calculate_std(double[:] arr): #calculate variance of arr
+    cdef int n = arr.shape[0]
+    cdef double mean = 0.0
+    cdef double var = 0.0
+    cdef double std_dev = 0.0
     cdef int i
-    cdef float dis = 0
-    for i in range(arr_shape):
-        dis += abs(p1[i] - p2[i])
-    return (dis) ** 0.5
+    
+    # Calculate mean
+    for i in range(n):
+        mean += arr[i]
+    mean /= n
+    
+    # Calculate variance
+    for i in range(n):
+        var += (arr[i] - mean) * (arr[i] - mean)
+    var /= n
+    
+    return sqrt(var)
 
-def C_pairwise(numpy.ndarray[numpy.int_t, ndim = 2] matrix):
-    cdef int arr_shape = matrix.shape[0]
-    cdef int i, j
-    cdef numpy.ndarray[numpy.float64_t, ndim = 2] dist_matrix = numpy.empty((arr_shape,arr_shape))
-    for i in range(arr_shape):
-        for j in range(arr_shape):
-            dist_matrix[i,j] = binary_dis_C(matrix[i], matrix[j])
-    return dist_matrix
+def minmax(double[:] arr): # find min, max of arr
+    cdef int i
+    cdef int n = arr.shape[0]
+    cdef DOUBLE_t min_val = arr[0]
+    cdef DOUBLE_t max_val = arr[0]
 
-#####
-#####Begin by fitting a kernel density to our forecasts
-# def clustering_alg(data):
-# 	cdef int l, y, x
-# 	cdef numpy.ndarray[numpy.float64_t, ndim= 1] ensemble
-# 	cdef float bw
-# 	mode_matrix = []
-# 	cdef int arr_shape_l = data.shape[0]
-# 	cdef int arr_shape_y = data.shape[2]
-# 	cdef int arr_shape_x = data.shape[3]
-# 	min_location = numpy.zeros((arr_shape_l, arr_shape_y, arr_shape_x), dtype=float)#//for every (l,y,x) we will have a value
-# 	cluster_idx = numpy.zeros((arr_shape_l, arr_shape_y, arr_shape_x), dtype=float)
-# 	for l in range(arr_shape_l):
-# 		start_time = time.time()
-# 		print (l)
-# 		for y in range(arr_shape_y):
-# 			for x in range(arr_shape_x):
-# 				ensemble = data[l, :, y, x]
-# 				bw = 0.45730505192732634 * numpy.std(ensemble)
-# 				means,mins = root_finding(ensemble, bw)
-# 				if len(means) == 2 and (4 < len(numpy.where(ensemble < mins[0])[0]) < 46) \
-# 						and ((continuous_pdf(mins[0], ensemble, bw)/continuous_pdf(means[0], ensemble, bw)) < 0.85) \
-# 							and ((continuous_pdf(mins[0], ensemble, bw)/continuous_pdf(means[1], ensemble, bw)) < 0.85):
-# 								min_location[l, y, x] = mins[0]
-# 								binary_ensemble = [0] * 50
-# 								binary_ensemble = numpy.array(binary_ensemble, dtype=int)
-# 								binary_ensemble[numpy.where(ensemble > mins[0])[0]] = 1
-# 								mode_matrix.append(binary_ensemble)
-# 		#print (time.time() - start_time)
-# 	#####Now find clusters based on ensemble groupings
-# 	start_time= time.time()
-# 	clusters_1 = fclusterdata(mode_matrix, t=3 ** 0.5, criterion='distance', metric=binary_dis)
-# 	print (time.time() - start_time, "clustering_1")
-# 	#start_time= time.time()
-# 	#dist_mode2 = C_pairwise(numpy.array(mode_matrix))
-# 	#clusters_2 = AgglomerativeClustering(n_clusters = None, linkage = "single", affinity = "precomputed", compute_full_tree = True, distance_threshold = 3**0.5).fit_predict(dist_mode2)
-# 	#print (time.time() - start_time, "clustering_2")
-# 	cluster_idx[:] = numpy.nan
-# 	i = 0
-# 	for l in range(arr_shape_l):
-# 		for y in range(arr_shape_y):
-# 			for x in range(arr_shape_x):
-# 				if min_location[l, y, x] != 0:
-# 					cluster_idx[l, y, x] = clusters_1[i]
-# 					i += 1
-# 	common_clusters = list(
-# 		dict(Counter(clusters_1).most_common(30)))  # //THESE ARE OUR MOST COMMON CLUSTERS looking at top 10
-# 	cluster_medoids = []
-# 	mode_matrix = numpy.array(mode_matrix)
-# 	for c in common_clusters:
-# 		clus_loc = numpy.where(clusters_1 == c)
-# 		c_mode_matrix = mode_matrix[clus_loc[0]]
-# 		#m_c1 = pairwise_distances(c_mode_matrix, metric=binary_dis)
-# 		m_c1 = C_pairwise(c_mode_matrix)
-# 		cluster_medoids.append(c_mode_matrix[numpy.argmin(m_c1.sum(axis=0))])  #// the minimum of each cluster is the medoid
-# 	cluster_medoids = numpy.array(cluster_medoids)
-# 	return cluster_medoids,cluster_idx, min_location
+    for i in range(1, n):
+        if arr[i] < min_val:
+            min_val = arr[i]
+        elif arr[i] > max_val:
+            max_val = arr[i]
+
+    return min_val, max_val
+   
+##
+#root finding functions + bm fitting
+##
+cpdef list recursive_rootfinding(double a, double b, double itol, double mtol, double[:] ens, double bw ):
+    cdef double mp = (b + a) / 2.0 #mid point
+    cdef list roots = [] #list for roots
+    
+    if b - a > itol:
+        roots.extend(recursive_rootfinding(a, mp, itol,mtol,ens,bw))  # Check left side
+        roots.extend(recursive_rootfinding(mp, b, itol,mtol,ens,bw))  # Check right side
+    else:
+        if is_root(first_deriv_pdf(a, ens, bw), first_deriv_pdf(b, ens, bw)): #check if we switch signs
+            roots.append(mp)
+    itol = max(itol*0.9, mtol) #adaptive tolerance
+    return roots
+
+def find_bimodality(double[:] ensemble):
+    #calculate bw
+    cdef int ens_size = ensemble.shape[0]
+    cdef double estd_dev = calculate_std(ensemble)
+    cdef bw = (ens_size ** (-1.0 / 5.0)) * estd_dev
+    
+    #calculate stuff for rootfinding
+    cdef double m, M
+    cdef double mtol = bw/10 # minimum tolerance
+    cdef double itol = bw/5  # initial tolerance
+    
+    m, M = minmax(ensemble)
+
+    cdef list roots = recursive_rootfinding(m, M, itol, mtol, ensemble, bw)
+    
+    cdef list Ms = roots[::2]  # maxima
+    cdef list ms = roots[1::2] # minima
+    
+    cdef int m1_mem = 0 # size of mode 1
+
+    cdef int mem_req = ens_size//10 # mem req is 10% of ensemble
+    
+    cdef i
+
+    if len(Ms)==2:
+        for i in range(ens_size):
+            if ensemble[i] < ms[0]:
+                m1_mem+=1      
+    cdef bint bimodal = (ens_size - mem_req >= m1_mem >= mem_req)
+    
+    return bimodal
+
+
+
+def apply_find_bimodality(numpy.ndarray[numpy.float64_t, ndim=4] large_array):
+    cdef int t = large_array.shape[1]
+    cdef int y = large_array.shape[2]
+    cdef int x = large_array.shape[3]
+    cdef int i,j,k
+    
+    cdef numpy.ndarray[numpy.uint8_t, ndim=3] results = numpy.zeros((t, y, x), dtype=numpy.uint8)
+
+    large_array = numpy.ascontiguousarray(large_array)
+    
+    for i in range(t):
+        for j in range(y):
+            for k in range(x):
+                results[i, j, k] = find_bimodality(large_array[:, i, j, k])
+    
+    return results
+
 
 
