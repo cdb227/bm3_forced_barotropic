@@ -120,6 +120,7 @@ def find_bimodality(double[:] ensemble):
     cdef list Ms = roots[::2]  # maxima
     cdef list ms = roots[1::2] # minima
     
+    cdef delta = 0
     cdef int m1_mem = 0 # size of mode 1
 
     cdef int mem_req = ens_size//10 # mem req is 10% of ensemble
@@ -127,12 +128,13 @@ def find_bimodality(double[:] ensemble):
     cdef i
 
     if len(Ms)==2:
+        delta = Ms[1]- Ms[0]
         for i in range(ens_size):
             if ensemble[i] < ms[0]:
                 m1_mem+=1      
     cdef bint bimodal = (ens_size - mem_req >= m1_mem >= mem_req)
     
-    return bimodal
+    return bimodal, delta
 
 
 
@@ -143,15 +145,18 @@ def apply_find_bimodality(numpy.ndarray[numpy.float64_t, ndim=4] large_array):
     cdef int i,j,k
     
     cdef numpy.ndarray[numpy.uint8_t, ndim=3] results = numpy.zeros((t, y, x), dtype=numpy.uint8)
+    cdef numpy.ndarray[numpy.float32_t, ndim=3] deltas = numpy.zeros((t, y, x), dtype=numpy.float32)
 
     large_array = numpy.ascontiguousarray(large_array)
     
     for i in range(t):
         for j in range(y):
             for k in range(x):
-                results[i, j, k] = find_bimodality(large_array[:, i, j, k])
+                bimodal, delta = find_bimodality(large_array[:, i, j, k])
+                results[i, j, k] = bimodal
+                deltas[ i, j, k] = delta
     
-    return results
+    return (results, deltas)
 
 
 
