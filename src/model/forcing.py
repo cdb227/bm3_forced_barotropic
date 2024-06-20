@@ -25,8 +25,7 @@ class Forcing:
         #for rededdy
         self.Si     = kwargs.get('red_eddy_start', self.gen_Si())
         self.dt     = kwargs.get('dt', config.DEFAULT_dt)
-
-                                    
+                     
         #for gaussian blob
         self.blob_center = kwargs.get('blob_center', [60, 160])
         
