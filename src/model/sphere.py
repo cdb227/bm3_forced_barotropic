@@ -83,14 +83,6 @@ class Sphere:
         self.thetaeq     = config.THETA0 - config.DELTHETA*np.sin(self.rqlats)**2
         self.thetaeq_lin = config.THETA0 - config.DELTHETA*np.sin(self.rlats)**2
         
-        #+++Addition of step function in temperature+++#
-        if config.INCLUDE_ICE:
-            si = config.ICE_JUMP*np.tanh((self.rqlats-np.radians(config.ICE_LAT)) *\
-                                     (1./np.radians(config.ICE_WIDTH)))
-            si[si<0]=0.
-            self.thetaeq = self.thetaeq-si
-        ####
-        
         #initial temp of sphere is the equil. temp.
         self.theta = self.thetaeq
         self.dxthetam, self.dythetam  = self.gradient(self.thetaeq, grid = 'quad')
@@ -131,6 +123,23 @@ class Sphere:
             self.gaussian_jet()       
         else:
             raise ValueError('base_state not recognized.')
+    def add_seaice(self, **sikwargs):
+        # Extract parameters with defaults
+        ICE_LAT = sikwargs.get('ICE_LAT', config.ICE_LAT)
+        ICE_JUMP = sikwargs.get('ICE_JUMP', config.ICE_JUMP)
+        ICE_WIDTH = sikwargs.get('ICE_WIDTH', config.ICE_WIDTH)
+        
+        def compute_seaice(latitudes):
+            x = (latitudes - np.radians(ICE_LAT)) / np.radians(ICE_WIDTH)
+            return ICE_JUMP * 1 / (1 + np.exp(-x))
+              
+        # Compute and subtract sea ice from quad grid
+        sea_ice_quad = compute_seaice(self.rqlats)
+        self.thetaeq -= sea_ice_quad
+
+        # Compute and subtract sea ice from lin grid
+        sea_ice_lin = compute_seaice(self.rlats)
+        self.thetaeq_lin -= sea_ice_lin
     
     ##+++spectral transforms+++    
     def to_spectral(self, field_grid):

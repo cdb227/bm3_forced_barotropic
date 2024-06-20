@@ -1,21 +1,18 @@
 import numpy as np
-import random
-from tqdm import tqdm
 import xarray as xr
-
-import cython_routines as cr
+import random
+from tqdm import tqdm # used for progress tracking
+from functools import partial
+import time
+from cython_routines import cbm_methods as cbm
 
 from model.sphere import Sphere
 from model.solver import Solver
 from model.forcing import Forcing
 from utils import config, constants
 
-#cython C methods
-#import sys
-#import pyximport
-#pyximport.install(setup_args={"script_args" : ["--verbose"]})
-#import bm_methods.bm_methods as bm_methods
-#import forced_barotropic_sphere.bm_methods as bm_methods
+import multiprocessing
+import gc
 
 def integrate_ensemble(st, T, **kwargs):
     """
@@ -27,10 +24,11 @@ def integrate_ensemble(st, T, **kwargs):
     nlat = M + 1
     
     n_ens         = kwargs.get('ensemble_size', config.DEFAULT_ENS_SIZE)
-    ens_vpert     = kwargs.get('ensemble_vortp', 0.)
+    ens_vpert     = kwargs.get('ensemble_vortp',  0.)
     ens_tpert     = kwargs.get('ensemble_thetap', 0.)
     ens_fpert     = kwargs.get('ensemble_forcep', 0.)
     share_forcing = kwargs.get('share_forcing', True)
+    seaice        = kwargs.get('seaice'       , False)
         
     slns=[] #storage for each ensemble sln.
     
@@ -45,62 +43,77 @@ def integrate_ensemble(st, T, **kwargs):
             
         st_e= Sphere(base_state=st.base_state)
         st_e.set_ics(ics_e)
+        if seaice:
+            st_e.add_seaice()
         
         solver = Solver(st_e, T=T, **kwargs)
         slns.append(solver.integrate_dynamics())
         
 
-    slns = xr.concat(slns,dim= "ens_mem")
+    slns = xr.concat(slns, dim= "ens_mem")
+    slns.assign_coords(ens_mem= range(len(slns.ens_mem)))
     
     return slns
 
-##+++bimodal specific functions+++
-def fit_KDE(ensemble):
-    """fit a KDE to a distribution and find the critical points"""
-    #TODO: check with our bm conditions? dependent on ensemble size, potentially useful for FP/FN experiments, but we'll likely
-    #use much larger ensembles for synthetic study
-    bw = 0.45730505192732634 * np.std(ensemble)
-    Ms,ms = cr.bm_methods.recursive_rootfinding(np.min(ensemble),np.max(ensemble),
-                                                tol=bw/10., fargs=(ensemble,bw))
-    return Ms,ms
-    #means,mins = bm_methods.root_finding(ensemble, bw)
-    #binary_ensemble = np.zeros(ensemble.shape, dtype=int)
-#     bimodal= False
-#     if len(means) == 2:# and (4 < len(np.where(ensemble < mins[0])[0]) < 46) \
-#     #and ((continuous_pdf(mins[0], ensemble, bw)/continuous_pdf(means[0], ensemble, bw)) < 0.85) \
-#     #and ((continuous_pdf(mins[0], ensemble, bw)/continuous_pdf(means[1], ensemble, bw)) < 0.85):
-#         #binary_ensemble[ensemble > mins[0]] = 1
-#         bimodal=True
-#     return bimodal#, binary_ensemble
 
+
+# Define your function to be parallelized
+def worker_function(data_subset):
+    return cbm.apply_find_bimodality(data_subset)
+
+def parallel_process_data(ensemble, num_processes):
     
-def find_bimodality(slns):
-    """find all isntances in slns in which the ensemble is bimodal using KDE estimation + brute force root finding"""
-    #TODO: this isn't pretty. no need to check all locations
-    slns_arr = np.array(slns)
-    bm_arr = np.array(slns.sel(ens_mem=0))
-    for tt in tqdm(range(slns_arr.shape[1])):
-        #we'll try and be clever for how we search for bm, only do where spread > 50% percentile
-        spread_tt = np.std(slns_arr[:,tt], axis=0)
-        spread_min = np.percentile(spread_tt, 75)
+    for bb in range(0, ensemble.shape[0], num_processes):
+        tst = time.time()
+        print('working on', bb)
         
-        for yy in range(slns_arr.shape[2]):
-            for xx in range(slns_arr.shape[3]):
-                if (spread_tt[yy,xx] < spread_min) | (spread_min<1e-5):
-                    bm_arr[tt,yy,xx] = False
-                    continue
-                bm_arr[tt,yy,xx] = fit_KDE(slns_arr[:,tt,yy,xx])
-    return bm_arr
-    
-    
-    
-#+++ Generate additional noise functions+++
-def generate_randomnoise(forcing, pert= 1e-12):
-    """Generate small white noise perturbations to a forcing instance to simulate small scale processes for each ensemble mem."""
-    return np.random.normal(loc=0., scale = pert, size= (forcing.Nt+2,len(forcing.sphere.glat),len(forcing.sphere.glon)))
-
+        pool = multiprocessing.Pool(processes=num_processes)
+        
+        # Determine the actual number of processes to be used for the current chunk
+        current_num_processes = min(num_processes, ensemble.shape[0] - bb)
+        
+        # Create a subset of the ensemble for the current chunk
+        print('time to load in :')
+        data_brick = ensemble.isel(run=slice(bb, bb + current_num_processes)).values
+        print('done loading')
+        # Convert the subset to a list of data for each process
+        data_chunks = [data_brick[i] for i in range(current_num_processes)]
+        
+        # Apply the worker function to each chunk in parallel
+        results = pool.map(worker_function, data_chunks)
+        print(results)
+        pool.close()
+        pool.join()
+        
+                # Extract results and deltas from multiprocessing output
+        if bb==0:
+            bm_results = [result[0] for result in results]
+            deltas = [result[1] for result in results]
+        else:
+            bm_results.extend([result[0] for result in results])
+            deltas.extend([result[1] for result in results])
+        print('time for one loop,', time.time()-tst)
+        del data_brick
+        del data_chunks
+        gc.collect()
         
     
+    print('done detecting..., converting to xarrays')
+    
+    bm_results = np.array(bm_results)
+    deltas = np.array(deltas)
+
+    
+    # Get dimensions and coordinates from ensemble
+    dims = [dim for dim in ensemble.dims if dim != 'ens_mem']
+    coords = {dim: ensemble[dim].values for dim in dims}
+    #print(coords)
+    # Create xarray DataArrays with the same dimensions and coordinates as ensemble
+    bm_results_xr = xr.DataArray(bm_results, dims=dims, coords=coords)
+    deltas_xr = xr.DataArray(deltas, dims=dims, coords=coords)
+    
+    return bm_results_xr, deltas_xr
+
         
         
 

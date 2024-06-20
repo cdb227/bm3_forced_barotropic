@@ -26,7 +26,7 @@ def calculate_trajectories(ds, x0, t0=0., rvs=False):
 
 
     dt=ds.time[1].data-ds.time[0].data 
-    tstep = dt//5 #by default we'll use a dt of 1/5 our integration dt
+    tstep = dt #by default we'll use a dt of 1/5 our integration dt
 
     Nt = int((T / tstep).item(0))
     dt = tstep.astype('d')
@@ -64,22 +64,23 @@ def calculate_trajectories(ds, x0, t0=0., rvs=False):
         raise ValueError("time not covered by the dataset ")
         
     # Convert cartesian velocities to angular velocities
-    lamdot = r2d * ds.u / (a * np.cos(d2r * ds.lat))
+    lamdot = r2d * ds.u / (a * np.cos(d2r * ds.y))
     phidot = r2d * ds.v /  a
     
     #fixes wraparound issue
-    lamdot = xr.concat([lamdot, lamdot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
-    phidot = xr.concat([phidot, phidot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    #lamdot = xr.concat([lamdot, lamdot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    #phidot = xr.concat([phidot, phidot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
     
     # This is a helper function that interpolates the gridded wind
     # to a specific place and time
     def interp_winds(xi, ti):
-        lon = xr.DataArray(((xi[0, :] + 180) % 360) - 180, dims = 'n')
-        lat = xr.DataArray(  xi[1, :]                    , dims = 'n')
+        #x = xr.DataArray(((xi[0, :] + 180) % 360) - 180, dims = 'n')
+        x= xr.DataArray(  xi[0, :]                    , dims = 'n')
+        y = xr.DataArray(  xi[1, :]                    , dims = 'n')
         tm  = xr.DataArray(  ti[:]                       , dims = 'n')
 
-        u = lamdot.interp(lat = lat, lon = lon, time = tm).data
-        v = phidot.interp(lat = lat, lon = lon, time = tm).data
+        u = lamdot.interp(x = x, y = y, time = tm,kwargs={"fill_value":None}).data
+        v = phidot.interp(x = x, y = y, time = tm,kwargs={"fill_value":None}).data
 
         return np.array([u, v])
                          
@@ -108,7 +109,7 @@ def calculate_trajectories(ds, x0, t0=0., rvs=False):
 
 
 
-def ens_calculate_trajectories(ds, x0, t0=0., rvs=False):
+def ens_calculate_trajectories(ds, x0, t0=0., rvs=False, tstep_factor = 2):
     '''Calculates horizontal trajectories in time. Specify winds ``ds``, and the initial
     coordinates ``x0`` and times ``t0`` for the trajectories.
     rvs = True traces parcels back in time.
@@ -119,14 +120,15 @@ def ens_calculate_trajectories(ds, x0, t0=0., rvs=False):
     if rvs:
         T = t0-ds.time.data[0]
 
-    dt=ds.time[1].data-ds.time[0].data 
-    tstep = dt//5 #by default we'll use a dt of 1/5 our integration dt
+    dt=ds.time[1].data-ds.time[0].data
+    tstep = dt*tstep_factor #by default we'll use a dt of 1/5 our integration dt
 
     Nt = int((T / tstep).item(0))
     dt = tstep.astype('d')
 
     # To calculate trajectories, we use time-evolving winds
     dts = np.arange(0, T, tstep)
+    #print(dts)
     if len(dts)>Nt:
         dts=dts[:-1]
         
@@ -149,7 +151,7 @@ def ens_calculate_trajectories(ds, x0, t0=0., rvs=False):
         xs[0, :,n,:] = x0.transpose()
         ts[:,n,:]       += dts.reshape(-1, 1)
     
-    print('Integrating %d trajectories for %s.' % (Ntraj, T*s2d)) 
+    print('Integrating %d trajectories for %s.' % (Ntraj, T)) 
     #for n in range(Ntraj):
     #    print ('  %d. From %g E, %g N at %s.' % (n + 1, xs[0, 0, n], xs[0, 1, n], str(ts[0, n])))
     
@@ -159,22 +161,24 @@ def ens_calculate_trajectories(ds, x0, t0=0., rvs=False):
         raise ValueError("time not covered by the dataset ")
         
     # Convert cartesian velocities to angular velocities
-    lamdot = r2d * ds.u / (a * np.cos(d2r * ds.lat))
+    lamdot = r2d * ds.u / (a * np.cos(d2r * ds.y))
     phidot = r2d * ds.v /  a
     
     #fixes wraparound issue
-    lamdot = xr.concat([lamdot, lamdot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
-    phidot = xr.concat([phidot, phidot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    #lamdot = xr.concat([lamdot, lamdot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
+    #phidot = xr.concat([phidot, phidot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')    
     
     # This is a helper function that interpolates the gridded wind
     # to a specific place and time
     def interp_winds(xi, ti):
-        lon = xr.DataArray(((xi[0, :] + 180) % 360) - 180, dims = ['ens_mem','n'])
-        lat = xr.DataArray(  xi[1, :]                    , dims = ['ens_mem','n'])
+        #x = xr.DataArray(((xi[0, :] + 180) % 360) - 180, dims = ['ens_mem','n'])
+        x= xr.DataArray(  xi[0, :]                    , dims = ['ens_mem','n'])
+        y = xr.DataArray(  xi[1, :]                    , dims = ['ens_mem','n'])
         tm  = xr.DataArray(  ti[:]                       , dims = ['ens_mem','n'])
-
-        u = lamdot.interp(lat = lat, lon = lon, time = tm).data
-        v = phidot.interp(lat = lat, lon = lon, time = tm).data
+        
+        #print(lat, lon, tm)
+        u = lamdot.interp(y = y, x = x, time = tm,kwargs={"fill_value": None}).data
+        v = phidot.interp(y = y, x = x, time = tm,kwargs={"fill_value": None}).data
 
         return np.array([u, v])
                          

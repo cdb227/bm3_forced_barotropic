@@ -22,12 +22,12 @@ DEFAULT_diffusion_order   = 2    #hyperdiffusion order
 #forcing defaults
 DEFAULT_forcing_type      = 'zero_forcing'
 DEFAULT_forcing_A         = 1e-11
+
 #ensemble defaults
 DEFAULT_ENS_SIZE          = 10
 
-###seaice configs.
-INCLUDE_ICE         = False    #include sea ice in model or not
-ICE_LAT             = 50       #ice edge location(degrees lat)
+###seaice defaults
+ICE_LAT             = 60       #ice edge location(degrees lat)
 ICE_WIDTH           = 1        #transition width (degrees lat)
 ICE_JUMP            = 10       #temperature jump for ice locations (K)
 
@@ -47,11 +47,21 @@ def held_1985(st):
     
     # Turn off frictional dissipation, thermal relaxation, add viscosity values from Held 1985
     params = dict(rs = 0., tau = 0., nu = 1e4, diffusion_order=1, robert_filter=0.01,
-                  dt=1800, forcing_type='none',
+                  dt=1800, forcing_type='zero_forcing',
                   temp_linear=True, vort_linear=False)
     
     return params
 
 
-# Turn off frictional dissipation, add viscosity values from Held and Phillips 1987
-#params = dict(rs = 0., nu = 1e15, diffusion_order=2)
+#TODO: need to check this setup
+def held_1987(st):    
+    vortp = 1e-5 * np.exp( -0.5 * (st.glats - 45.)**2 / 10**2 -0.5 * (st.glons - 60.)**2 / 10**2 )
+
+    thetap = np.zeros(vortp.shape)
+    st.set_ics([vortp,thetap])
+    
+    # Turn off frictional dissipation, add viscosity values from Held and Phillips 1987
+    params = dict(rs = 0., nu = 1e15, diffusion_order=2, dt=1800,
+                  forcing_type='zero_forcing',temp_linear=True, vort_linear=False)
+    
+    return params

@@ -115,8 +115,6 @@ class Solver:
             # Step 3: Compute the curl of du, dv to find dzdt in spectral
             dz[:, inow], _ = self.sphere.sq.getvrtdivspec(du, dv, self.sphere._ntrunc)
             dz[:, inow] += self.forcing.evolve_forcing()
-            #if self.forcing_type=='rededdy': #duct-tape, fix later.
-            #    dz[:, inow] += self.forcing.evolve_rededdy(dt=self.dt) #finally, add forcing term in spectral space
 
             # Step 1a: Compute tracer & gradients in grid space
             tr = self.sphere.to_quad_grid(trs[:, jnow])
@@ -201,5 +199,16 @@ class Solver:
         #psi = xr.DataArray(psio, name = 'psi', coords = crds, dims = ['time', 'y', 'x'])
         u   = xr.DataArray(uo, name = 'u',   coords = crds, dims = ['time', 'y', 'x'])
         v   = xr.DataArray(vo, name = 'v',   coords = crds, dims = ['time', 'y', 'x'])
-        return xr.Dataset(data_vars = dict(vort=vort, vortp=vortp, u=u, v=v, thetap=thetap, theta=theta))
+        
+        
+        sln = xr.Dataset(data_vars = dict(vort=vort, vortp=vortp, u=u, v=v, thetap=thetap, theta=theta))
+        
+        sln = sln.assign_coords(x=(((sln.x + 180) % 360) - 180)) # Reassign x coordinates between -180 and 180E
+        sln = sln.sortby('x')
+        
+        #have y go from -90 -> 90
+        sln=sln.reindex(y=list(reversed(sln.y))) #have y go from -90 -> 90
+        #sln=sln.rename(dict(x='lon',y='lat')) # rename x,y to lon,lat
+
+        return sln
     
