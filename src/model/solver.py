@@ -115,11 +115,15 @@ class Solver:
             # Step 3: Compute the curl of du, dv to find dzdt in spectral
             dz[:, inow], _ = self.sphere.sq.getvrtdivspec(du, dv, self.sphere._ntrunc)
             dz[:, inow] += self.forcing.evolve_forcing()
+            
+            #extra-- add coupling from surface?
+            #print(self.sphere.sq.getvrtdivspec(du, dv, self.sphere._ntrunc)[0].max(),self.sphere.laplace_spectral(trs[:,jnow]).max() )
+            #dz[:, inow] += 1e-1*self.sphere.laplace_spectral(trs[:,jnow])
 
             # Step 1a: Compute tracer & gradients in grid space
             tr = self.sphere.to_quad_grid(trs[:, jnow])
             dx_tr, dy_tr = self.sphere.gradient(trs[:, jnow], realm = 'spec', grid = 'quad')
-
+                        
             # Compute advection tendencies
             dtr = -u * self.sphere.dxthetam - self.sphere.U * dx_tr \
                   -v * self.sphere.dythetam - self.sphere.V * dy_tr

@@ -43,8 +43,9 @@ def integrate_ensemble(st, T, **kwargs):
             
         st_e= Sphere(base_state=st.base_state)
         st_e.set_ics(ics_e)
+        
         if seaice:
-            st_e.add_seaice()
+            st_e.add_seaice(**kwargs)
         
         solver = Solver(st_e, T=T, **kwargs)
         slns.append(solver.integrate_dynamics())
@@ -57,20 +58,23 @@ def integrate_ensemble(st, T, **kwargs):
 
 
 
-# Define your function to be parallelized
+#for some reason calling this from a jupyter notebook causes some problems...
+## Define your function to be parallelized
 def worker_function(data_subset):
     return cbm.apply_find_bimodality(data_subset)
 
-def parallel_process_data(ensemble, num_processes):
-    
+def parallel_process_data(ensemble, num_processes, save=False, save_str=None):
+    if save and (save_str is None):
+        raise ValueError("if saving, must provide a str for file name")
     for bb in range(0, ensemble.shape[0], num_processes):
-        tst = time.time()
-        print('working on', bb)
-        
-        pool = multiprocessing.Pool(processes=num_processes)
-        
+        tst = time.time()                
         # Determine the actual number of processes to be used for the current chunk
         current_num_processes = min(num_processes, ensemble.shape[0] - bb)
+        
+        print(f'working on {bb}-{bb+current_num_processes} out of {ensemble.shape[0]}')
+
+        pool = multiprocessing.Pool(processes=current_num_processes)
+
         
         # Create a subset of the ensemble for the current chunk
         print('time to load in :')
@@ -81,7 +85,6 @@ def parallel_process_data(ensemble, num_processes):
         
         # Apply the worker function to each chunk in parallel
         results = pool.map(worker_function, data_chunks)
-        print(results)
         pool.close()
         pool.join()
         
@@ -96,7 +99,6 @@ def parallel_process_data(ensemble, num_processes):
         del data_brick
         del data_chunks
         gc.collect()
-        
     
     print('done detecting..., converting to xarrays')
     
@@ -112,7 +114,12 @@ def parallel_process_data(ensemble, num_processes):
     bm_results_xr = xr.DataArray(bm_results, dims=dims, coords=coords)
     deltas_xr = xr.DataArray(deltas, dims=dims, coords=coords)
     
-    return bm_results_xr, deltas_xr
+    # Combine the DataArrays into a single Dataset
+    combined_dataset = xr.Dataset({'bm_results': bm_results_xr, 'deltas': deltas_xr})
+    if save:
+        rpath = '/doppler/data8/bertossa/bm3/'
+        combined_dataset.to_netcdf(rpath+save_str+'.nc')
+    return combined_dataset
 
         
         

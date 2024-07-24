@@ -146,19 +146,29 @@ def plot_energy(sln, normalize_to_ic = True):
     return axs
 
 #+++Plotting routines for ensembles+++#
-def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2),
+def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2), filename='./espread.png', 
                          trjs=None,ts=None, proj = ccrs.NorthPolarStereo()):
     """
-    Plot ensemble spread (defined as 1 std of ensemble) of theta
+    Plot ensemble spread (defined as 1 std of ensemble) of theta.
+    
+    Parameters:
+    ds : (xarray.Dataset) The dataset containing the ensemble data.
+    t : (int) The time index to plot.
+    levels : Contour levels for variances
+    filename: str
+    trjs : Trajectories locations
+    ts : Time steps for trajectories
+    proj : Projection for the plot. Default is ccrs.NorthPolarStereo().
     """
+    
     f = plt.figure(figsize = (5, 5))
     ax = plt.axes(projection=proj)
     ax.set_extent([-179.9, 179.9, 20, 90], crs=ccrs.PlateCarree())
     make_ax_circular(ax)
     
-    ds= add_cyclic_point(ds)
     background = ds.theta.sel(ens_mem=0).sel(time=0)
-    theta = ds.theta.std('ens_mem').sel(time=t)
+    theta = add_cyc_point(ds.theta)
+    theta = theta.std('ens_mem').sel(time=t)
     
     #use to get colorbar
     cm = sns.color_palette("light:seagreen", as_cmap=True)
@@ -193,8 +203,6 @@ def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2),
         xsup[np.where(xsup>180)[0]]-=360
         return xsup
     
-    
-    
     if trjs is not None:
         ntr = trjs.shape[2]
         for i in range(ntr):
@@ -203,7 +211,7 @@ def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2),
             tys = trjs[:,1,i]
  
             scol = ds.theta.sel(ens_mem=i).interp(time=0,
-                   lon=txs[-1],y=tys[-1], kwargs={"fill_value":None}).item(0)
+                   x=txs[-1],y=tys[-1], kwargs={"fill_value":None}).item(0)
             ax.scatter(trjs[-1, 0, i], trjs[-1, 1, i], c= scol, norm=norm,cmap=cmap, marker='o',transform=ccrs.PlateCarree(), zorder=10, edgecolors='k')
             
             
@@ -213,7 +221,6 @@ def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2),
             tsc = xr.DataArray(ts[:,i].reshape(-1), dims=['location'])
             cols = ds.theta.sel(ens_mem=i).interp(time=tsc,x=xsc,y=ysc,kwargs={"fill_value":None}).values
             
-           # txs = (txs+360)%360
             txs= sanitize_lonlist(txs)
             points = np.array([txs, tys]).T.reshape(-1, 1, 2)
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -226,26 +233,9 @@ def plot_theta_ensspread(ds,t, levels=np.arange(0,10,2),
             ax.plot(trjs[0:1, 0, i], trjs[0:1, 1, i], 'kx', ls='', mew=2., transform=ccrs.PlateCarree(), zorder=20) #final point
             #ax.plot(trjs[20::20, 0, i], trjs[20::20, 1, i], 'k+', ls='',  transform=ccrs.PlateCarree(),mew=1.)
             
-    f.savefig('./test.png', dpi=300)
+    f.savefig(filename, dpi=300)
             
     return ax
-
-    
-def plot_bm_occurrence(slns, bmocc, levels=np.arange(0,0.101,0.02), proj=ccrs.NorthPolarStereo()):
-    f = plt.figure(figsize = (5, 5))
-    ax = plt.axes(projection=proj)
-    ax.set_extent([-179.9, 179.9, 30, 90], crs=ccrs.PlateCarree())
-    frac = np.mean(bmocc,axis=0)
-    cf= ax.contourf(slns.x.values, slns.y.values, frac, extend='max', levels=levels,transform=ccrs.PlateCarree(), cmap = 'Greens')
-    plt.colorbar(cf,orientation='horizontal', label = 'bm fraction')
-    ax=make_ax_circular(ax)
-    ax=add_gridlines(ax)
-    return f,ax
-
-####
-#+++animations+++#
-####
-    
 
     
 
