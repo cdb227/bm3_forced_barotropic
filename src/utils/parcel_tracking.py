@@ -14,33 +14,29 @@ r2d = 180. / np.pi # Factor to convert radians to degrees
 
 
 def calculate_trajectories(ds, x0, t0=0., rvs=False):
-    '''Calculates horizontal trajectories in time. Specify winds ``ds``, and the initial
+    """Calculates horizontal trajectories in time. Specify winds ``ds``, and the initial
     coordinates ``x0`` and times ``t0`` for the trajectories.
     rvs = True traces parcels back in time.
-    Integrates trajectories until bounds of ds'''
+    Integrates trajectories until bounds of ds"""
     
     t0 = [t0] 
     T = ds.time.data[-1]-t0
+    
     if rvs:
         T = t0-ds.time.data[0]
 
-
     dt=ds.time[1].data-ds.time[0].data 
-    tstep = dt #by default we'll use a dt of 1/5 our integration dt
 
-    Nt = int((T / tstep).item(0))
-    dt = tstep.astype('d')
+    Nt = int((T / dt).item(0))
 
     # To calculate trajectories, we use time-evolving winds
-    dts = np.arange(0, T, tstep)
+    dts = np.arange(0, T, dt)
     if len(dts)>Nt:
         dts=dts[:-1]
-    #print(T, dts, dt, Nt)
-    #print (ts.shape, dts.shape)
-    if rvs:
+        
+    if rvs: #if we want to trace origin rather than project forward in time
         dts*=-1
         dt*=-1
-        tstep*=-1
 
     x0 = np.array(x0)
     t0 = np.array(t0)
@@ -67,7 +63,7 @@ def calculate_trajectories(ds, x0, t0=0., rvs=False):
     lamdot = r2d * ds.u / (a * np.cos(d2r * ds.y))
     phidot = r2d * ds.v /  a
     
-    #fixes wraparound issue
+    #fixes wraparound issue, not necessary here.
     #lamdot = xr.concat([lamdot, lamdot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
     #phidot = xr.concat([phidot, phidot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
     
@@ -93,9 +89,9 @@ def calculate_trajectories(ds, x0, t0=0., rvs=False):
         t = ts[n, :]
 
         dx1 = dt * interp_winds(x,           t            )
-        dx2 = dt * interp_winds(x + 0.5*dx1, t + 0.5*tstep)
-        dx3 = dt * interp_winds(x + 0.5*dx2, t + 0.5*tstep)
-        dx4 = dt * interp_winds(x +     dx3, t +     tstep)
+        dx2 = dt * interp_winds(x + 0.5*dx1, t + 0.5*dt)
+        dx3 = dt * interp_winds(x + 0.5*dx2, t + 0.5*dt)
+        dx4 = dt * interp_winds(x +     dx3, t +     dt)
 
         xs[n+1, :, :] = x + 1/6. * (dx1 + 2.*dx2 + 2.*dx3 + dx4)
         
@@ -110,10 +106,9 @@ def calculate_trajectories(ds, x0, t0=0., rvs=False):
 
 
 def ens_calculate_trajectories(ds, x0, t0=0., rvs=False, tstep_factor = 2):
-    '''Calculates horizontal trajectories in time. Specify winds ``ds``, and the initial
-    coordinates ``x0`` and times ``t0`` for the trajectories.
-    rvs = True traces parcels back in time.
-    Integrates trajectories until bounds of ds'''
+    """
+    As above but for an ensemble darray
+    """
     
     t0 = [t0] 
     T = ds.time.data[-1]-t0
@@ -121,21 +116,19 @@ def ens_calculate_trajectories(ds, x0, t0=0., rvs=False, tstep_factor = 2):
         T = t0-ds.time.data[0]
 
     dt=ds.time[1].data-ds.time[0].data
-    tstep = dt*tstep_factor #by default we'll use a dt of 1/5 our integration dt
+    dt *= tstep_factor
 
-    Nt = int((T / tstep).item(0))
-    dt = tstep.astype('d')
+    Nt = int((T / dt).item(0))
 
     # To calculate trajectories, we use time-evolving winds
-    dts = np.arange(0, T, tstep)
-    #print(dts)
+    dts = np.arange(0, T, dt)
+    
     if len(dts)>Nt:
         dts=dts[:-1]
         
-    if rvs:
+    if rvs: #if we want to trace origin rather than project forward in time
         dts*=-1
         dt*=-1
-        tstep*=-1
 
     x0 = np.array(x0)
     t0 = np.array(t0)
@@ -164,9 +157,8 @@ def ens_calculate_trajectories(ds, x0, t0=0., rvs=False, tstep_factor = 2):
     lamdot = r2d * ds.u / (a * np.cos(d2r * ds.y))
     phidot = r2d * ds.v /  a
     
-    #fixes wraparound issue
-    #lamdot = xr.concat([lamdot, lamdot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')
-    #phidot = xr.concat([phidot, phidot.isel(lon=slice(0,1)).assign_coords(lon=[180])], dim='lon')    
+    lamdot = lamdot.assign_coords(ens_mem=ds.ens_mem)
+    phidot = phidot.assign_coords(ens_mem=ds.ens_mem)
     
     # This is a helper function that interpolates the gridded wind
     # to a specific place and time
@@ -191,9 +183,9 @@ def ens_calculate_trajectories(ds, x0, t0=0., rvs=False, tstep_factor = 2):
         t = ts[n, :]
 
         dx1 = dt * interp_winds(x,           t            )
-        dx2 = dt * interp_winds(x + 0.5*dx1, t + 0.5*tstep)
-        dx3 = dt * interp_winds(x + 0.5*dx2, t + 0.5*tstep)
-        dx4 = dt * interp_winds(x +     dx3, t +     tstep)
+        dx2 = dt * interp_winds(x + 0.5*dx1, t + 0.5*dt)
+        dx3 = dt * interp_winds(x + 0.5*dx2, t + 0.5*dt)
+        dx4 = dt * interp_winds(x +     dx3, t +     dt)
 
         xs[n+1, :, :] = x + 1/6. * (dx1 + 2.*dx2 + 2.*dx3 + dx4)
         
