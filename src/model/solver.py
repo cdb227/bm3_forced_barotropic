@@ -2,8 +2,6 @@ import numpy as np
 from tqdm import tqdm
 import xarray as xr
 
-import sys
-sys.path.append('../src')  # Add the 'src' directory to the Python path
 from model import forcing
 from utils import config, constants
 

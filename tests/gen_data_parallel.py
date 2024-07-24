@@ -1,6 +1,3 @@
-import sys
-sys.path.append('../src')  # Add the 'src' directory to the Python path-- better way to do this, fix later
-
 from model.solver import Solver #bm3_barotropic_model packages
 from model.sphere import Sphere
 from model.forcing import Forcing

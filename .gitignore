@@ -1,2 +1,3 @@
 *.pyc
 .ipynb_checkpoints*
+src/bm3.egg-info/

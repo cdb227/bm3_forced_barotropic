@@ -1,8 +1,6 @@
 import numpy as np
 import random
 
-import sys
-sys.path.append('../src')  # Add the 'src' directory to the Python path
 from utils import config, constants
 
 class Forcing:

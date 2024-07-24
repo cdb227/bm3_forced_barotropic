@@ -2,11 +2,6 @@ import numpy as np
 import spharm
 import xarray as xr
 
-
-###################################################
-# Define physical constants
-import sys
-sys.path.append('../src')  # Add the 'src' directory to the Python path
 from utils import constants, config
 
 class Sphere:
